@@ -1,0 +1,130 @@
+// --- graffiti and noise --- //
+Graffiti Removal - City Property
+Graffiti Removal - External Organization
+PUI Noise Complaint Case
+PUI Noise General Inquiry Case
+
+
+// --- street surface & Maintenance --- //
+Street Furniture Repair and Maintenance Request
+Street Cleaning & Debris Pickup
+Street Light - Out
+Street Tree Work Request SR
+Street Litter Can Request
+Streets - General Issues
+Street Light - Pole Repair
+Street - Surface Water Flooding
+Street - Repair
+Street Light - New/Relocation
+Street Light - Flat Glass Fixture Request
+Street and Traffic Light - Utility Damage
+Street Sign - New
+Crosswalk Marking - New
+Boulevard Maintenance Issues
+Bicycle Route Map Request
+Sidewalk - Repair
+Pothole - Repair
+Pavement Markings Request - New/Modify
+Pavement Marking - Repair
+Sewer Pipe Inquiries
+Sewer Manhole Issues
+Sewer General Inquiries
+Sewer Design General Inquiries
+Sewer Separation Inspection Cancellation Case
+Sewer Utility Damage
+Sewer Odour Complaints
+Plumbing and Gas Inspection Cancellation Case
+Snow Angel Program - Individual Volunteer
+Snow & Ice Removal - City Property
+Snow and Ice Removal - Sidewalk Bylaw Violation
+Snow and Ice Removal - Sidewalk Bylaw Inquiry
+Traffic & Pedestrian Signal - New
+Traffic Calming Request
+Traffic & Pedestrian Signal - Modify
+Traffic Sign - Modify
+Street and Traffic Light - Utility Damage
+Traffic Sign - New
+Traffic Count Request
+Truck Violation
+Residential Parking Requests
+Parking Meter Requests
+Abandoned Vehicle Request
+
+// --- garbage, Recycling & organics --- //
+Missed Garbage Pickup
+Abandoned Garbage Pickup - City Property & Parks
+Cart - Garbage
+Illegal Dumping/Abandoned Garbage Pickup
+Parks Litter Can or Cart Request
+Recycling Bag Request
+Missed Recycling Pickup
+Missed Apartment Recycling Pickup
+Recycling Box Request
+Cart - Apartment Recycling
+Apartment Recycling - Registration Request
+Transfer Station & Recycling - General Inquiries
+Blue Box and Leaf Removal Guide Mail-Out Request
+Missed Yard Trimmings and Food Scraps Pickup
+Cart - Green (Yard Trimmings and Food Scraps)
+Green Bin Program - Feedback and General Inquiry
+Collection Calendar Mail-Out Request
+
+// --- Water Related Issues --- //
+Water Leaks/Breaks
+Water Service Turn On/Off Request
+Water Service Locate Request
+Street - Surface Water Flooding
+Water Work Site Complaint
+Water Hydrant Issue
+Water General Inquiry
+Water General Work Request
+Water Pressure or No Water Issue
+Water Conservation Violation
+Water Meter Issue
+Water Damage To City Water System
+Catch Basin Issues
+
+
+
+// --- animal and vegetation related --- //
+Dead Animal Pickup Case
+Animal Control General Inquiry Case
+Animal Complaint - Non-Emergency Case
+Animal Cremation Case
+Dead Skunk Pickup
+Lost Pets Case
+Holding Stray Case
+Chafer Beetle Feedback
+Vegetation Maintenance SR
+Trees and Vegetation Encroachment - City Property
+Horticulture Inquiry on Right-of-Way
+
+
+
+// --- Other --- //
+Poster/Sign Removal Request
+Sign - Repair
+Curbside Sign - New
+Curbside Sign - Modify
+Banner Request
+Fire Reinspection Request for Firehall
+Fire Reinspection Request for Inspector
+Citizen Feedback
+Wheelchair Curb/Ramp Request
+Wheelchair
+PRB_Park Ranger SR
+Building Plans Information Request
+Building Inspection Cancellation Case
+Licence Payment Request Case
+Gone Out of Business Case
+FPB_General Inquiry Case
+PUI General Inquiry Case
+Electrical Inspection Cancellation Case
+Bridges & Structures - Repair
+Secondary Suite Information Request
+General Information Request SR
+Election General Concerns
+Occupancy Permit Information Request
+Home Safety Check Request Case
+Flag Request
+Homelessness/Transient Issue
