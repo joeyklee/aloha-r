@@ -486,6 +486,8 @@ And a scale bar:
 
 ***
 # Project: What are Vancouverites Complaining About?
+![](assets/img2/prototype.png)
+
 ## Brief:
 The City of Vancouver releases a dataset of the 3-1-1 phone calls - the general hotline regarding maintenance issues in the city. Currently there is no tool to visualize and access the data. How can citizens engage the city for these matters if there's no way to work with the data?  In the name of civic "hacking", the project brief is to develop a project that:
 
@@ -515,6 +517,8 @@ This will be a collaborative project - you will need to communicate within and a
 ***
 
 ## Process: Exploring the 3-1-1 data
+
+![](assets/img2/workflow-sketch.JPG)
 
 Data viz is hard and in the end comes down to a lot of experimentation and exploration. This script attempts to showcase how the data viz pipeline is done in practice and how it is far from a linear process, but rather a very interactive and dynamic process.
 
