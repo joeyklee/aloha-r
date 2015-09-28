@@ -369,7 +369,7 @@ We just saw how to *make* a dataframe using the **data.frame()** function using 
 
 	# --- reading in data from a csv file --- #
 	# store the filename & path to a variable
-	fileName = '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/rain.csv'
+	fileName = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/rain2014.csv'
 	
 	# pass the filename variable to the "read.csv()" function
 	# use "header=TRUE" if there's a header
@@ -414,51 +414,61 @@ We install packages in R by using the *install.packages()* function:
 	# ---------- Using our first R package to display a shapefile! ---------- #
 	# install the maptools library
 	install.packages("GISTools")
+	install.packages('scales')
 
 After we install our R package, we need to import it to our script. We do so using the *library()* function:
 	
-	# import the maptools functions by calling the library() function
+	# import the gistools functions by calling the library() function
 	library(GISTools)
+	library(scales)
 
-Now that we have our library imported, we have can read in some shapefiles that are conveniently sitting in our data folder. Similar to how we read in our .csv file, we just have to include the path name to each of our .shp files.
+Now that we have our library imported, we have can read in some shapefiles that are conveniently sitting in our data folder. Similar to how we read in our .csv file, we just have to include the path name to each of our .geojson files.
+
 
 	# --- read in shps --- #
 	# Building shp
-	fname_buildings ="/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/shp/buildings.shp"
-	buildings = readShapeSpatial(fname_buildings)
+	fname_buildings ="https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/example/buildings.geojson"
+	buildings = readOGR(fname_buildings, 'OGRGeoJSON')
 	plot(buildings) # plot to inspect
 	
 	# Roads shp
-	fname_roads = "/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/shp/roads.shp"
-	roads = readShapeSpatial(fname_roads)
+	fname_roads = "https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/example/roads.geojson"
+	roads = readOGR(fname_roads, 'OGRGeoJSON')
 	plot(roads) # plot to inspect
 	
-	# Vehicle paths
-	fname_paths = "/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/shp/paths.shp"
-	paths = readShapeSpatial(fname_paths)
+	# Co2 points
+	fname_co2 = "https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/example/co2.geojson"
+	co2 = readOGR(fname_co2, 'OGRGeoJSON')
 	plot(paths)
 
+
 By plotting the data, we can see what we have! Now, let's combine the plots together to make a very basic map:
-	
+![](assets/img2/ex1.png)
+
 	# Plot the buildings
 	plot(buildings, 
-	     col = "#4f4f4f", 
-	     lwd= 0.5,
-	     border="#494949",
-	     bg ="#404040",
-	     main ="Vehicle Paths Downtown Vancouver")
-	
+	     col = "#808080", 
+	     border=F,
+	     bg ="#FFFFFF",
+	     main ="CO2 Mixing Ratios Downtown Vancouver")
+
+![](assets/img2/ex2.png)
+
 	# Add the roads to the plot with "add = TRUE"
 	plot(roads,
-	     col="#383838",
-	     lwd=2,
+	     col="#000000",
+	     lwd=1,
 	     add=TRUE)
 	     
+![](assets/img2/ex3.png)
+	
 	# Add the Paths to the plot with "add = TRUE"
-	plot(paths,
-	     col="#d0d0b9",
-	     alpha=1,
-	     lwd=1,
+	vals = rescale(co2@data$co2, c(0.5, 5))
+	plot(co2,
+	     col="#FF6600",
+	     pch= 20,
+	     alpha=0.5,
+	     cex=vals,
 	     add=TRUE)
 
 We can even add a north arrow in R (or later in Illustrator):
@@ -491,6 +501,7 @@ As a data and design team, you must deliver:
 
 ## Timeline:
 The timeline for the project is 3 weeks:
+
 1. Week 1: Data Handling with R - acquire, parse, filter, & mine 3-1-1 data.
 2. Week 2: Data Handling Continued / Interactive Web Mapping
 3. Week 3: Interactive Web Mapping Project Synthesis
@@ -498,10 +509,537 @@ The timeline for the project is 3 weeks:
 ## Overview:
 We will use this project to go through Ben Fry's Data Visualization Pipeline. 
 
-
-
-
+This will be a collaborative project - you will need to communicate within and accross teams and be organized and have a well documented workflow. This will become clear when we generate the interactive map tile layers later on in the project.
 
 
 ***
+
+## Process: Exploring the 3-1-1 data
+
+Data viz is hard and in the end comes down to a lot of experimentation and exploration. This script attempts to showcase how the data viz pipeline is done in practice and how it is far from a linear process, but rather a very interactive and dynamic process.
+
+### setup:
+Let's being our script by a nice cheeky commented header:
+
+	######################################################
+	# Vancouver 3-1-1: Data Processing Script
+	# Date:
+	# By: 
+	# Desc: 
+	######################################################
+	
+We noticed how libraries can help us to read in geographic data and even help us make new scales. Since this is a bigger project, we're going to need to help of some more libraries:
+
+	# ------------------------------------------------- #
+	# --------------- Install Libararies --------------- #
+	# ------------------------------------------------- #
+	install.packages("GISTools")
+	install.packages('rgdal')
+	install.packages('curl')
+	install.packages("devtools")
+	devtools::install_github("corynissen/geocodeHERE")
+	
+	# Unused Libraries:
+	# install.packages("ggmap")
+	# library(ggmap)
+
+You will notice we have some unused libraries - these are some that I started out using in the beginning, but decided to not use. I kept them here just for future reference. NOTE: ggmap was previously used for it's **geocode()** function - but with google's 2500 api call limit, it wasn't enough for the 10,000+ geocoding events we would need for our project.
+
+Let's load up our libraries now that we've installed them:
+
+	# ------------------------------------------------- #
+	# ---------------- Load Libararies ----------------- #
+	# ------------------------------------------------- #
+	library(GISTools)
+	library(rgdal)
+	library(geocodeHERE)
+	library(curl)
+
+
+### Acquire
+
+We use the **curl()** function to make http/https requests from the web to get data and used our **read.csv()** function to read our table in to R.
+
+	# ------------------------------------------------- #
+	# ------------------- Acquire --------------------- #
+	# ------------------------------------------------- #
+	# access from the interwebz using "curl"
+	fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201401CaseLocationsDetails.csv')
+	# Read data as csv
+	data = read.csv(fname, header=T)
+	# inspect your data
+	print(head(data))
+
+### Parse
+
+Upon inspecting our data, we notice we have the addresses, but the city has put int "#'s" to help with the anonymity of the callers. Furthermore, we notice that we don't have any lat/lon coordinates to work with to turn our 3-1-1 calls into a something spatial. How can we develop a solution for this?
+
+First let's sub out the "#" with "0":
+
+	# ------------------------------------------------- #
+	# -------------- Parse: Geocoder ------------------- #
+	# ------------------------------------------------- #
+	# change intersection to 00's
+	data$h_block = gsub("#", "0", data$Hundred_Block)
+	print(head(data$h_block))
+
+
+Next let's concatenate the newly created "h_block" column with the **Street_Name** column, and a string that specifices that all of the calls are from **Vancouver, BC, Cananda**:
+
+	# Join the strings from each column together & add "Vancouver, BC":
+	data$full_address = paste(data$h_block, 
+	                          paste(data$Street_Name,
+	                                "Vancouver, BC, Canada",
+	                                sep=", "),
+	                          sep=" ")
+
+We also notice that the city has put in the word "intersection" for those calls that refer to an intersection. Let's take those out so as to make our geocoding parsing potentially easier:
+
+	data$full_address = gsub("Intersection", "", data$full_address)
+	print(data$full_address)
+
+Now we will use Nokia's Here API for their geocoder - their limit on geocoding requests is ~10,000 calls per 24 hours. This works well since our data is ~10,000 features. This will take all of our addresses and return lat/lon coordinates for us to use. The total process takes about 20 min which is pretty fast - possibly faster with a good internet connection. 
+
+	# Geocode the events - we use Nokia's Here API
+	# Create an empty vector for lat and lon coordinates
+	lat = c(); lon = c()
+	# loop through the addresses
+	for(i in 1: length(data$full_address)){
+	  # store the address at index "i" as a character
+	  address = as.character(data$full_address[i])
+	  # append the latitude of the geocoded address to the lat vector
+	  lat = c(lat,geocodeHERE_simple(address)$Latitude)
+	  # append the longitude of the geocoded address to the lon vector
+	  lon = c(lon,geocodeHERE_simple(address)$Longitude)
+	  # at each iteration through the loop, print the coordinates - takes about 20 min.
+	  print(paste("#",i,", ", lat[i], lon[i], sep=","))
+	}
+	
+	# add the lat lon coordinates to the dataframe
+	data$lat = lat
+	data$lon = lon 
+	
+	# after geocoding, it's a good idea to write your file out!
+	ofile ='<insert filepath here>' 
+	write.csv(data, ofile)
+
+
+### Mine
+
+We won't be doing any heavy analysis on the data, but we will try to tease out some categories to make the data more intuitive for exploring. The first thing we'll do is to see what are the types of unique cases that are being called in:
+
+	# ------------------------------------------------- #
+	# --------------------- Mine ---------------------- #
+	# ------------------------------------------------- #
+	# --- Examine the unique cases --- #
+	
+	# examine how the cases are grouped - are these intuitive?
+	unique(data$Department)
+	unique(data$Division)
+	
+	# examine the types of cases - can we make new groups that are more useful?
+	unique(data$Case_Type)
+	# Print each unique case on a new line for easier inspection
+	for (i in 1:length(unique(data$Case_Type))){
+	  print(unique(data$Case_Type)[i], max.levels=0)
+	}
+
+We print out the cases and store them to a list here:
+
+	Dead Animal Pickup Case
+	Missed Garbage Pickup
+	Abandoned Garbage Pickup - City Property & Parks
+	PRB_Park Ranger SR
+	Sign - Repair
+	Animal Control General Inquiry Case
+	Lost Pets Case
+	Residential Parking Requests
+	Missed Yard Trimmings and Food Scraps Pickup
+	Traffic & Pedestrian Signal - New
+	Graffiti Removal - City Property
+	Poster/Sign Removal Request
+	Street Furniture Repair and Maintenance Request
+	Water Leaks/Breaks
+	Street Cleaning & Debris Pickup
+	Wheelchair Curb/Ramp Request
+	Recycling Bag Request
+	Animal Complaint - Non-Emergency Case
+	Street Light - Out
+	Missed Recycling Pickup
+	Missed Apartment Recycling Pickup
+	Street Tree Work Request SR
+	Citizen Feedback
+	Cart - Green (Yard Trimmings and Food Scraps)
+	Water Service Turn On/Off Request
+	Sewer Pipe Inquiries
+	Fire Reinspection Request for Firehall
+	Street Litter Can Request
+	Electrical Inspection Cancellation Case
+	Cart - Garbage
+	Fire Reinspection Request for Inspector
+	Collection Calendar Mail-Out Request
+	PUI Noise Complaint Case
+	Building Plans Information Request
+	Licence Payment Request Case
+	Streets - General Issues
+	Street Light - Pole Repair
+	Water Service Locate Request
+	Recycling Box Request
+	Gone Out of Business Case
+	Street - Surface Water Flooding
+	Blue Box and Leaf Removal Guide Mail-Out Request
+	Illegal Dumping/Abandoned Garbage Pickup
+	Sidewalk - Repair
+	Abandoned Vehicle Request
+	Cart - Apartment Recycling
+	Water Work Site Complaint
+	Parks Litter Can or Cart Request
+	Water Hydrant Issue
+	Secondary Suite Information Request
+	Vegetation Maintenance SR
+	Street - Repair
+	Building Inspection Cancellation Case
+	PUI Noise General Inquiry Case
+	Snow Angel Program - Individual Volunteer
+	Street Light - New/Relocation
+	FPB_General Inquiry Case
+	PUI General Inquiry Case
+	Pothole - Repair
+	Trees and Vegetation Encroachment - City Property
+	Holding Stray Case
+	Green Bin Program - Feedback and General Inquiry
+	Traffic Calming Request
+	Traffic & Pedestrian Signal - Modify
+	Catch Basin Issues
+	Snow & Ice Removal - City Property
+	Plumbing and Gas Inspection Cancellation Case
+	Street Light - Flat Glass Fixture Request
+	General Information Request SR
+	Traffic Sign - Modify
+	Sewer Manhole Issues
+	Snow and Ice Removal - Sidewalk Bylaw Violation
+	Water General Inquiry
+	Sewer General Inquiries
+	Curbside Sign - New
+	Occupancy Permit Information Request
+	Graffiti Removal - External Organization
+	Water General Work Request
+	Pavement Marking - Repair
+	Election General Concerns
+	Home Safety Check Request Case
+	Apartment Recycling - Registration Request
+	Street and Traffic Light - Utility Damage
+	Sewer Odour Complaints
+	Horticulture Inquiry on Right-of-Way
+	Traffic Sign - New
+	Sewer Design General Inquiries
+	Homelessness/Transient Issue
+	Banner Request
+	Sewer Separation Inspection Cancellation Case
+	Boulevard Maintenance Issues
+	Parking Meter Requests
+	Bridges & Structures - Repair
+	Street Sign - New
+	Animal Cremation Case
+	Dead Skunk Pickup
+	Water Pressure or No Water Issue
+	Water Conservation Violation
+	Truck Violation
+	Water Meter Issue
+	Flag Request
+	Pavement Markings Request - New/Modify
+	Snow and Ice Removal - Sidewalk Bylaw Inquiry
+	Curbside Sign - Modify
+	Crosswalk Marking - New
+	Chafer Beetle Feedback
+	Water Damage To City Water System
+	Traffic Count Request
+	Sewer Utility Damage
+
+Whoa! That's a heck of a lot of cases. Our role of data visualization people is to take this mess and try to make sense of it so that we can represent it in a manner that is more intuitive and possibly delightful. There are a bunch of ways that we can organize these cases into specific classes, so I invite you to think about how we might best organize these. For now, I've come up with **6 classes** that bin these cases together. **Does this make sense? Should we change it?**:
+
+	// --- graffiti and noise --- //
+	Graffiti Removal - City Property
+	Graffiti Removal - External Organization
+	PUI Noise Complaint Case
+	PUI Noise General Inquiry Case
+	
+	// --- street surface & Maintenance --- //
+	Street Furniture Repair and Maintenance Request
+	Street Cleaning & Debris Pickup
+	Street Light - Out
+	Street Tree Work Request SR
+	Street Litter Can Request
+	Streets - General Issues
+	Street Light - Pole Repair
+	Street - Surface Water Flooding
+	Street - Repair
+	Street Light - New/Relocation
+	Street Light - Flat Glass Fixture Request
+	Street and Traffic Light - Utility Damage
+	Street Sign - New
+	Crosswalk Marking - New
+	Boulevard Maintenance Issues
+	Bicycle Route Map Request
+	Sidewalk - Repair
+	Pothole - Repair
+	Pavement Markings Request - New/Modify
+	Pavement Marking - Repair
+	Sewer Pipe Inquiries
+	Sewer Manhole Issues
+	Sewer General Inquiries
+	Sewer Design General Inquiries
+	Sewer Separation Inspection Cancellation Case
+	Sewer Utility Damage
+	Sewer Odour Complaints
+	Plumbing and Gas Inspection Cancellation Case
+	Snow Angel Program - Individual Volunteer
+	Snow & Ice Removal - City Property
+	Snow and Ice Removal - Sidewalk Bylaw Violation
+	Snow and Ice Removal - Sidewalk Bylaw Inquiry
+	Traffic & Pedestrian Signal - New
+	Traffic Calming Request
+	Traffic & Pedestrian Signal - Modify
+	Traffic Sign - Modify
+	Street and Traffic Light - Utility Damage
+	Traffic Sign - New
+	Traffic Count Request
+	Truck Violation
+	Residential Parking Requests
+	Parking Meter Requests
+	Abandoned Vehicle Request
+	
+	// --- garbage, Recycling & organics --- //
+	Missed Garbage Pickup
+	Abandoned Garbage Pickup - City Property & Parks
+	Cart - Garbage
+	Illegal Dumping/Abandoned Garbage Pickup
+	Parks Litter Can or Cart Request
+	Recycling Bag Request
+	Missed Recycling Pickup
+	Missed Apartment Recycling Pickup
+	Recycling Box Request
+	Cart - Apartment Recycling
+	Apartment Recycling - Registration Request
+	Transfer Station & Recycling - General Inquiries
+	Blue Box and Leaf Removal Guide Mail-Out Request
+	Missed Yard Trimmings and Food Scraps Pickup
+	Cart - Green (Yard Trimmings and Food Scraps)
+	Green Bin Program - Feedback and General Inquiry
+	Collection Calendar Mail-Out Request
+	
+	// --- Water Related Issues --- //
+	Water Leaks/Breaks
+	Water Service Turn On/Off Request
+	Water Service Locate Request
+	Street - Surface Water Flooding
+	Water Work Site Complaint
+	Water Hydrant Issue
+	Water General Inquiry
+	Water General Work Request
+	Water Pressure or No Water Issue
+	Water Conservation Violation
+	Water Meter Issue
+	Water Damage To City Water System
+	Catch Basin Issues
+	
+	// --- animal and vegetation related --- //
+	Dead Animal Pickup Case
+	Animal Control General Inquiry Case
+	Animal Complaint - Non-Emergency Case
+	Animal Cremation Case
+	Dead Skunk Pickup
+	Lost Pets Case
+	Holding Stray Case
+	Chafer Beetle Feedback
+	Vegetation Maintenance SR
+	Trees and Vegetation Encroachment - City Property
+	Horticulture Inquiry on Right-of-Way
+	
+	// --- Other --- //
+	Poster/Sign Removal Request
+	Sign - Repair
+	Curbside Sign - New
+	Curbside Sign - Modify
+	Banner Request
+	Fire Reinspection Request for Firehall
+	Fire Reinspection Request for Inspector
+	Citizen Feedback
+	Wheelchair Curb/Ramp Request
+	Wheelchair
+	PRB_Park Ranger SR
+	Building Plans Information Request
+	Building Inspection Cancellation Case
+	Licence Payment Request Case
+	Gone Out of Business Case
+	FPB_General Inquiry Case
+	PUI General Inquiry Case
+	Electrical Inspection Cancellation Case
+	Bridges & Structures - Repair
+	Secondary Suite Information Request
+	General Information Request SR
+	Election General Concerns
+	Occupancy Permit Information Request
+	Home Safety Check Request Case
+	Flag Request
+	Homelessness/Transient Issue
+
+In the end our 6 classes are:
+
+1. graffiti and noise
+2. street surface & Maintenance
+3. animal and vegetation related
+4. water related
+5. garbage, Recycling & organics related
+6. other
+
+Now that we have our classes, we can put them in arrays:
+
+	# Determine classes to group case types:
+
+	# graffiti and noise
+	graffiti_noise = c('Graffiti Removal - City Property','Graffiti Removal - External Organization','PUI Noise Complaint Case','PUI Noise General Inquiry Case')
+	
+	# street surface & Maintenance
+	street_traffic_maint = c('Street Furniture Repair and Maintenance Request','Street Cleaning & Debris Pickup','Street Light - Out','Street Tree Work Request SR','Street Litter Can Request','Streets - General Issues','Street Light - Pole Repair','Street - Surface Water Flooding','Street - Repair','Street Light - New/Relocation','Street Light - Flat Glass Fixture Request','Street and Traffic Light - Utility Damage','Street Sign - New','Crosswalk Marking - New','Boulevard Maintenance Issues','Bicycle Route Map Request','Sidewalk - Repair','Pothole - Repair','Pavement Markings Request - New/Modify','Pavement Marking - Repair','Sewer Pipe Inquiries','Sewer Manhole Issues','Sewer General Inquiries','Sewer Design General Inquiries','Sewer Separation Inspection Cancellation Case','Sewer Utility Damage','Sewer Odour Complaints','Plumbing and Gas Inspection Cancellation Case','Snow Angel Program - Individual Volunteer','Snow & Ice Removal - City Property','Snow and Ice Removal - Sidewalk Bylaw Violation','Snow and Ice Removal - Sidewalk Bylaw Inquiry','Traffic & Pedestrian Signal - New','Traffic Calming Request','Traffic & Pedestrian Signal - Modify','Traffic Sign - Modify','Street and Traffic Light - Utility Damage','Traffic Sign - New','Traffic Count Request','Truck Violation','Residential Parking Requests','Parking Meter Requests','Abandoned Vehicle Request')
+	
+	# garbage, Recycling & organics related
+	garbage_recycling_organics = c('Missed Garbage Pickup','Abandoned Garbage Pickup - City Property & Parks','Cart - Garbage','Illegal Dumping/Abandoned Garbage Pickup','Parks Litter Can or Cart Request','Recycling Bag Request','Missed Recycling Pickup','Missed Apartment Recycling Pickup','Recycling Box Request','Cart - Apartment Recycling','Apartment Recycling - Registration Request','Transfer Station & Recycling - General Inquiries','Blue Box and Leaf Removal Guide Mail-Out Request','Missed Yard Trimmings and Food Scraps Pickup','Cart - Green (Yard Trimmings and Food Scraps)','Green Bin Program - Feedback and General Inquiry','Collection Calendar Mail-Out Request')
+	
+	# water related
+	water = c('Water Leaks/Breaks','Water Service Turn On/Off Request','Water Service Locate Request','Street - Surface Water Flooding','Water Work Site Complaint','Water Hydrant Issue','Water General Inquiry','Water General Work Request','Water Pressure or No Water Issue','Water Conservation Violation','Water Meter Issue','Water Damage To City Water System','Catch Basin Issues')
+	
+	#animal and vegetation related
+	animal_vegetation = c('Dead Animal Pickup Case','Animal Control General Inquiry Case','Animal Complaint - Non-Emergency Case','Animal Cremation Case','Dead Skunk Pickup','Lost Pets Case','Holding Stray Case','Chafer Beetle Feedback','Vegetation Maintenance SR','Trees and Vegetation Encroachment - City Property','Horticulture Inquiry on Right-of-Way')
+	
+	# other
+	other = c('Poster/Sign Removal Request','Sign - Repair','Curbside Sign - New','Curbside Sign - Modify','Banner Request','Fire Reinspection Request for Firehall','Fire Reinspection Request for Inspector','Citizen Feedback','Wheelchair Curb/Ramp Request','Wheelchair','PRB_Park Ranger SR','Building Plans Information Request','Building Inspection Cancellation Case','Licence Payment Request Case','Gone Out of Business Case','FPB_General Inquiry Case','PUI General Inquiry Case','Electrical Inspection Cancellation Case','Bridges & Structures - Repair','Secondary Suite Information Request','General Information Request SR','Election General Concerns','Occupancy Permit Information Request','Home Safety Check Request Case','Flag Request','Homelessness/Transient Issue')
+
+We can then run through the lists and give each of the classes and **cid** so that it is easier to identify and represent them later:
+
+	# give class id numbers:
+	data$cid = 9999
+	for(i in 1:length(data$Case_Type)){
+	  if(data$Case_Type[i] %in% graffiti_noise){
+	    data$cid[i] = 1    
+	  }else if(data$Case_Type[i] %in% street_traffic_maint){
+	    data$cid[i] = 2   
+	  }else if(data$Case_Type[i] %in% garbage_recycling_organics){
+	    data$cid[i] = 3   
+	  }else if(data$Case_Type[i] %in% water){
+	    data$cid[i] = 4   
+	  }else if(data$Case_Type[i] %in% animal_vegetation){
+	    data$cid[i] = 5   
+	  }else{
+	    data$cid[i] = 0   
+	  }
+	}
+	
+Great, so we now have our data binned into specific groups in a way that seems to make sense. However, if do a little poking around at our data, we notice that since our addresses are aggregated a lot of times to the same address point, our lat/lon coordinates come out the same. How can we deal with this spatial overlap? 
+
+One way to do this is to add in some "jitter" to each point if it happens to have the same coordinates. 
+
+	# --- handle overlapping points --- #
+	# Set offset for points in same location:
+	data$lat_offset = data$lat
+	data$lon_offset = data$lon
+	# Run loop - if value overlaps, offset it by a random number
+	for(i in 1:length(data$lat)){
+	  if ( (data$lat_offset[i] %in% data$lat_offset) && (data$lon_offset[i] %in% data$lon_offset)){
+	    data$lat_offset[i] = data$lat_offset[i] + runif(1, 0.00005, 0.0001)
+	    data$lon_offset[i] = data$lon_offset[i] + runif(1, 0.00005, 0.0001)
+	  } 
+	}
+
+To derive some more insight into the data, how about looking at the top calls:
+
+	# --- what are the top calls? --- #
+	# get a frequency distribution of the calls:
+	top_calls = data.frame(table(data$Case_Type))
+	top_calls = top_calls[order(top_calls$Freq),]
+	print(top_calls)
+	
+
+### Filter
+
+So we've added in some new coordinates and fiddled with them a bit to help with the representation. At this point, it is a good idea to filter out any extraneous points or points that fall outside of our area of interest - in this case Vancouver. Geocoders aren't perfect and so we should be wary to include any false positives.
+
+First we set a folder where our shapefiles currently are living and where they will go:
+
+	# ------------------------------------------------- #
+	# -------------------- Filter --------------------- #
+	# ------------------------------------------------- #
+	# set an output folder for our shapefiles
+	shpfolder = '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/shp/'
+
+Let's subset out data that is either an NA or falls outside of Vancouver's bounds:
+	
+	# Subset only the data if the coordinates are within our bounds or if it is not a NA
+	data_filter = subset(data, (lat <= 49.3) | (lat >= 49.2) & 
+		                       (lon <= -123) | (lon >= -123.1) & is.na(lon) )
+	
+With a filtered dataset, we can now write our file out to a shapefile to use later (in Mapbox studio)
+          
+	# --- Convert Data to Shapefile --- #
+	# store coordinates in dataframe
+	coords_311 = data.frame(data_filter$lon_offset, data_filter$lat_offset)
+	# create spatialPointsDataFrame
+	data_shp = SpatialPointsDataFrame(coords = coords_311, data = data_filter)
+	# set the projection to wgs84
+	projection_wgs84 = CRS("+proj=longlat +datum=WGS84")
+	proj4string(data_shp) = projection_wgs84
+	# write the file to a shp
+	writeOGR(data_shp, 
+	         shpfolder,
+	         'calls_1401',  driver="ESRI Shapefile")
+
+We have all the raw data, but remember that saying "overview first, details on demand"? Our brains simply can't understand the sheer number of points on the map. How about using some way of aggregating the points to a grid? Turns our hexagonal grids are quite good for conveying density of data points. I've created a hexagonal grid in QGIS at a resolution of about 100m x 112m:
+
+First let's read in the grid and reproject it from utm zone 10 north to wgs84:
+
+	# --- aggregate to a grid --- #
+	# ref: http://www.inside-r.org/packages/cran/GISTools/docs/poly.counts
+	# set the file name - combine the shpfolder with the name of the grid
+	grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
+	# define the utm 10n projection
+	projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
+	# read in the hex grid setting the projection to utm10n
+	hexgrid = readShapeSpatial(grid_fn, proj4string = projection_utm10n )
+	# transform the projection to wgs84 to match the point file and store it to a new variable
+	hexgrid_wgs84 = spTransform(hexgrid, projection_wgs84)
+
+Next, let's use the **poly.counts()** function to count the number of points in each grid cell:
+
+	# Use the poly.counts() function to count the number of occurences of calls per grid cell
+	grid_cnt = poly.counts(data_shp, hexgrid_wgs84)
+	# create a data frame of the counts
+	grid_total_counts = data.frame(grid_cnt)
+	# set grid_total_counts dataframe to the hexgrid data
+	hexgrid_wgs84$data = grid_total_counts$grid_cnt
+	
+Finally, write out the data to a shpfile to use later in Mapbox studio.
+
+	# write the grid counts to a shp
+	writeOGR(hexgrid_wgs84, 
+	         shpfolder,
+	         'hgrid_100m-1401-counts',  driver="ESRI Shapefile")
+
+
+Theoretically, we have enough data now to start putting together our web app which visualizes the 3-1-1 data. The next step will be to work with the representation and using the data we produced to filter the visuals with user interactions. 
+
+***
+# Bonus
+***
+## Loop
+
+We completed the exploration for 1 month, but what about the remaining 11 months? Do we have time to run this script on the other files? Will we run into problems? What is the value added of having the other temporal data?
+
+If we have time, let's run the script on the remaining other data for the other months. We have to change a few of our parameters each time:
+
+1. the link to the data
+2. the output csv file we write after the geocoding
+3. the shpfile we output after the "jitter"
+4. the shapefile of the total calls
+
+It doesn't make sense for **all** of us to run this script for each month. Can we be coordinated enough to break up the task in smaller groups? How do we share the data afterward? These are all decisions we will have to make if we decide to do this! 
 
