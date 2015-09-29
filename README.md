@@ -950,10 +950,11 @@ One way to do this is to add in some "jitter" to each point if it happens to hav
 	# Run loop - if value overlaps, offset it by a random number
 	for(i in 1:length(data$lat)){
 	  if ( (data$lat_offset[i] %in% data$lat_offset) && (data$lon_offset[i] %in% data$lon_offset)){
-	    data$lat_offset[i] = data$lat_offset[i] + runif(1, 0.00005, 0.0001)
-	    data$lon_offset[i] = data$lon_offset[i] + runif(1, 0.00005, 0.0001)
+	    data$lat_offset[i] = data$lat_offset[i] + runif(1, 0.0001, 0.0005)
+	    data$lon_offset[i] = data$lon_offset[i] + runif(1, 0.0001, 0.0005)
 	  } 
 	}
+
 
 To derive some more insight into the data, how about looking at the top calls:
 
@@ -1033,6 +1034,8 @@ Theoretically, we have enough data now to start putting together our web app whi
 
 ### Full script:
 
+I've made some changes to the script to make it easier to iterate over the data for each month. Notice the section: "set file vars"
+
 	######################################################
 	# Vancouver 3-1-1: Data Processing Script
 	# Date:
@@ -1062,10 +1065,18 @@ Theoretically, we have enough data now to start putting together our web app whi
 	library(curl)
 	
 	# ------------------------------------------------- #
-	# ------------------- Acquire --------------------- #
+	# ---------------- Set File Vars ------------------ #
 	# ------------------------------------------------- #
 	# access from the interwebz using "curl"
-	fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201401CaseLocationsDetails.csv')
+	fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201403CaseLocationsDetails.csv')
+	ofile ='/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201403CaseLocationsDetails-geo.csv' 
+	yymm = 1403
+	
+	# ------------------------------------------------- #
+	# ------------------- Acquire --------------------- #
+	# ------------------------------------------------- #
+	# # access from the interwebz using "curl"
+	# fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201401CaseLocationsDetails.csv')
 	# Read data as csv
 	data = read.csv(fname, header=T)
 	# inspect your data
@@ -1099,7 +1110,7 @@ Theoretically, we have enough data now to start putting together our web app whi
 	  # append the longitude of the geocoded address to the lon vector
 	  lon = c(lon,geocodeHERE_simple(address)$Longitude)
 	  # at each iteration through the loop, print the coordinates - takes about 20 min.
-	  print(paste("#",i,", ", lat[i], lon[i], sep=","))
+	  print(paste(i, lat[i], lon[i], sep=","))
 	}
 	
 	# add the lat lon coordinates to the dataframe
@@ -1107,7 +1118,7 @@ Theoretically, we have enough data now to start putting together our web app whi
 	data$lon = lon
 	
 	# after geocoding, it's a good idea to write your file out!
-	ofile ='/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/CaseLocationsDetails_2014_CSV/201401CaseLocationsDetails-geo.csv' 
+	# ofile ='/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/CaseLocationsDetails_2014_CSV/201401CaseLocationsDetails-geo.csv' 
 	write.csv(data, ofile)
 	
 	# ------------------------------------------------- #
@@ -1159,8 +1170,8 @@ Theoretically, we have enough data now to start putting together our web app whi
 	# Run loop - if value overlaps, offset it by a random number
 	for(i in 1:length(data$lat)){
 	  if ( (data$lat_offset[i] %in% data$lat_offset) && (data$lon_offset[i] %in% data$lon_offset)){
-	    data$lat_offset[i] = data$lat_offset[i] + runif(1, 0.00005, 0.0001)
-	    data$lon_offset[i] = data$lon_offset[i] + runif(1, 0.00005, 0.0001)
+	    data$lat_offset[i] = data$lat_offset[i] + runif(1, 0.0001, 0.0005)
+	    data$lon_offset[i] = data$lon_offset[i] + runif(1, 0.0001, 0.0005)
 	  } 
 	}
 	
@@ -1190,19 +1201,21 @@ Theoretically, we have enough data now to start putting together our web app whi
 	projection_wgs84 = CRS("+proj=longlat +datum=WGS84")
 	proj4string(data_shp) = projection_wgs84
 	# write the file to a shp
-	writeOGR(data_shp, 
-	         shpfolder,
-	         'calls_1401',  driver="ESRI Shapefile")
-	
+	# writeOGR(data_shp, 
+	#          shpfolder,
+	#          paste('calls_',yymm, sep=""),  driver="ESRI Shapefile")
+	writeOGR(data_shp, paste(shpfolder,'calls_',yymm, sep=""),layer='data_shp',  driver='GeoJSON')
 	
 	# --- aggregate to a grid --- #
 	# ref: http://www.inside-r.org/packages/cran/GISTools/docs/poly.counts
 	# set the file name - combine the shpfolder with the name of the grid
-	grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
+	# grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
+	grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_100m.geojson'
 	# define the utm 10n projection
-	projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
+	# projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
 	# read in the hex grid setting the projection to utm10n
-	hexgrid = readShapeSpatial(grid_fn, proj4string = projection_utm10n )
+	# hexgrid = readShapeSpatial(grid_fn, proj4string = projection_utm10n )
+	hexgrid = readOGR(grid_fn, 'OGRGeoJSON')
 	# transform the projection to wgs84 to match the point file and store it to a new variable
 	hexgrid_wgs84 = spTransform(hexgrid, projection_wgs84)
 	
@@ -1214,9 +1227,14 @@ Theoretically, we have enough data now to start putting together our web app whi
 	hexgrid_wgs84$data = grid_total_counts$grid_cnt
 	
 	# write the grid counts to a shp
-	writeOGR(hexgrid_wgs84, 
-	         shpfolder,
-	         'hgrid_100m-counts',  driver="ESRI Shapefile")
+	# writeOGR(hexgrid_wgs84, 
+	#          shpfolder,
+	#          paste('hgrid_100m-',yymm,'-counts', sep=""),  driver="ESRI Shapefile")
+	
+	writeOGR(hexgrid_wgs84, paste(shpfolder,'hgrid_100m_',as.character(yymm),'_counts', sep=""),layer='hexgrid_wgs84',  driver='GeoJSON')
+
+
+
 	
 	
 
