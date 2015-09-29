@@ -1237,3 +1237,19 @@ If we have time, let's run the script on the remaining other data for the other 
 
 It doesn't make sense for **all** of us to run this script for each month. Can we be coordinated enough to break up the task in smaller groups? How do we share the data afterward? These are all decisions we will have to make if we decide to do this! 
 
+***
+# Additional Resources & Demos
+***
+## R Leaflet
+
+Run these lines of code and create an interactive map with R!
+
+	install.packages('leaflet')
+	library(leaflet)
+	
+	m <- leaflet()
+	m <- addTiles(m)
+	m <- addMarkers(m, lng=123.0, lat=49.2, popup="The birthplace of R")
+	m
+
+
