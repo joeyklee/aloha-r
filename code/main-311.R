@@ -30,9 +30,9 @@ library(curl)
 # ---------------- Set File Vars ------------------ #
 # ------------------------------------------------- #
 # access from the interwebz using "curl"
-fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201401CaseLocationsDetails.csv')
-ofile ='/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/CaseLocationsDetails_2014_CSV/201401CaseLocationsDetails-geo.csv' 
-yymm = 1401
+fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201403CaseLocationsDetails.csv')
+ofile ='/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201403CaseLocationsDetails-geo.csv' 
+yymm = 1403
 
 # ------------------------------------------------- #
 # ------------------- Acquire --------------------- #
@@ -72,7 +72,7 @@ for(i in 1: length(data$full_address)){
   # append the longitude of the geocoded address to the lon vector
   lon = c(lon,geocodeHERE_simple(address)$Longitude)
   # at each iteration through the loop, print the coordinates - takes about 20 min.
-  print(paste("#",i,", ", lat[i], lon[i], sep=","))
+  print(paste(i, lat[i], lon[i], sep=","))
 }
 
 # add the lat lon coordinates to the dataframe
@@ -132,8 +132,8 @@ data$lon_offset = data$lon
 # Run loop - if value overlaps, offset it by a random number
 for(i in 1:length(data$lat)){
   if ( (data$lat_offset[i] %in% data$lat_offset) && (data$lon_offset[i] %in% data$lon_offset)){
-    data$lat_offset[i] = data$lat_offset[i] + runif(1, 0.00005, 0.0001)
-    data$lon_offset[i] = data$lon_offset[i] + runif(1, 0.00005, 0.0001)
+    data$lat_offset[i] = data$lat_offset[i] + runif(1, 0.0001, 0.0005)
+    data$lon_offset[i] = data$lon_offset[i] + runif(1, 0.0001, 0.0005)
   } 
 }
 
