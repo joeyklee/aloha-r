@@ -1240,34 +1240,145 @@ I've made some changes to the script to make it easier to iterate over the data 
 
 
 ***
-# Bonus
+# Creating the Full Dataset
 ***
 ## Loop
 
-We completed the exploration for 1 month, but what about the remaining 11 months? Do we have time to run this script on the other files? Will we run into problems? What is the value added of having the other temporal data?
+We completed the exploration for 1 month, but what about the remaining 11 months? What is the value added of having the other temporal data?
 
-If we have time, let's run the script on the remaining other data for the other months. We have to change a few of our parameters each time:
+Let's run the script on the remaining other data for the other months. We have to change a few of our parameters each time:
 
 1. the link to the data
 2. the output csv file we write after the geocoding
 3. the shpfile we output after the "jitter"
 4. the shapefile of the total calls
 
-It doesn't make sense for **all** of us to run this script for each month. Can we be coordinated enough to break up the task in smaller groups? How do we share the data afterward? These are all decisions we will have to make if we decide to do this! 
+It doesn't make sense for **all** of us to run this script for each month. Can we be coordinated enough to break up the task in smaller groups? How do we share the data afterward? What is a good naming convention for each of the files? These are all decisions we will have to make! 
 
 ***
-# Additional Resources & Demos
+# Your own web map with R Leaflet
 ***
-## R Leaflet
+## Overview
+We've just created a whole bunch of data and so far it is just a bunch of shapefiles (or geojson files - depending on what you exported) and .csv files. We haven't even had the chance to look at what we've made! While there are a dozen tools we could use to visualize and interact with our data (e.g. Tilemill, Mapbox Studio, CartoDB, Tableau, etc), we are going to stick with R for now and let it "gently" introduce us to the **fundamentals of a web map**.  
 
-Run these lines of code and create an interactive map with R!
 
-	install.packages('leaflet')
+## Web Map Fundamentals
+A number of great people out there have created an overview of web map fundamentals, let's take a look and learn how it all works:
+
+[Alan McConchie & Beth Schechter! - anatomy of a web map](http://maptime.io/anatomy-of-a-web-map/)
+
+[Maptime ATX - web map fundamentals](http://maptimeatx.github.io/web-mapping-fundamentals/#1)
+
+[Joey's Hello Web Maps Intro](http://joeyklee.github.io/hellowebmaps/#/)
+
+## Enter: R Leaflet
+So if we know that to make a web map generally is composed of:
+
+
+1. map tiles (most of the time)
+	
+	![](assets/img2/tiles-example.png)
+
+2. geodata
+
+	![](assets/img2/shapefile-example.png)
+ 
+3. html/css/javascript (your webstack)
+
+	![](assets/img2/webstack-explained.png)
+
+And we also know that:
+
+1. we know **little or nothing** about html/css/javascript
+2. we haven't made any map tiles
+
+
+**THEN HOW THE HELL ARE WE SUPPOSED TO MAKE OUR OWN WEB MAP???**
+
+Well, turns out that others have also been in your same predicament and have developed a library to bring web mapping to R programmers. 
+
+**Wait a second... so we can make a web map, without coding any html, css, or javascript?**
+
+YES! sort of. Some clever people got together and wrote a library in R that takes a very famous and awesome javascript library (yes there are libraries in javascript, and every other language out there!) called "Leaflet.js" and allows you to write R code and export a fully functional web map, with tiles and geodata drawn right on top! 
+
+Basically what happens is:
+
+1. you load up the "leaflet" library for R
+2. you write R code that then gets **translated** into html/css/javascript
+3. your translated code is written into an ".html" file which includes:
+	* your html skeleton
+	* the leaflet.js library and leaflet css style
+	* your javascript which was translated from your R code 
+
+
+***
+### Our First Example
+
+**With 5 lines of code, we're going to make our first interactive web map!**
+
+![](assets/img2/example1-leafletr.png)
+
+Run these lines of code and create your first interactive map with R!
+
+	# install the leaflet library
+	devtools::install_github("rstudio/leaflet")
+	
+	# add the leaflet library to your script
 	library(leaflet)
 	
+	# initiate the leaflet instance and store it to a variable
 	m <- leaflet()
+	
+	# we want to add map tiles so we use the addTiles() function - the default is openstreetmap
 	m <- addTiles(m)
-	m <- addMarkers(m, lng=123.0, lat=49.2, popup="The birthplace of R")
-	m
+	
+	# we can add markers by using the addMarkers() function
+	m <- addMarkers(m, lng=-123.256168, lat=49.266063, popup="T")
+	
+	# we can "run"/compile the map, by running the printing it
+	print(m)
 
+
+Now if we **export** the map and **save as webpage...**:
+
+
+![](assets/img2/export-leafletr.png)
+
+The convention for naming .html files is "index", therefore, let's name our file: **index.html**
+
+![](assets/img2/save-leafletr.png)
+
+If you were to inspect your web map now, you would see basically:
+	
+	<!DOCTYPE html>
+	<html>
+		<head>
+		    <meta charset="utf-8" />
+		    <script src="some javascript related to the generation of HTML elements from R"></script>
+		    <script src="some javascript related to leaflet"></script>
+		    <link href="some css related to leaflet" />
+		    <script src="some javascript related to Jquery"></script>
+		    <link href="some javascript related to leaflet" rel="stylesheet" />
+		    <link href="some css related to leaflet" rel="stylesheet" />
+		    <script src="some javascript related to leaflet"></script>
+		    <script src="some javascript related to leafletR"></script>
+		</head>
+	
+		<body style="background-color:white;">
+		    <div id="htmlwidget_container">
+		        <div id="htmlwidget-1215" style="width:100%;height:400px;" class="leaflet"></div>
+		    </div>
+		    <script type="application/json" data-for="htmlwidget-1215">{"x":{"calls":[{"method":"addTiles","args":["http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"maxNativeZoom":null,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"continuousWorld":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":null,"unloadInvisibleTiles":null,"updateWhenIdle":null,"detectRetina":false,"reuseTiles":false,"attribution":"&copy; <a href=\ "http://openstreetmap.org\">OpenStreetMap</a> contributors, <a href=\ "http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a>"}]},{"method":"addMarkers","args":[49.266063,-123.256168,null,null,null,{"clickable":true,"draggable":false,"keyboard":true,"title":"","alt":"","zIndexOffset":0,"opacity":1,"riseOnHover":false,"riseOffset":250},"UBC Geography",null,null,null,null]}],"limits":{"lat":[49.266063,49.266063],"lng":[-123.256168,-123.256168]}},"evals":[]}</script>
+		    <script type="application/htmlwidget-sizing" data-for="htmlwidget-1215">{"viewer":{"width":"100%","height":400,"padding":0,"fill":true},"browser":{"width":"100%","height":400,"padding":0,"fill":true}}</script>
+		</body>
+	
+	</html>
+
+**Don't worry if this doesn't make any sense! Just know that what you wrote in R, turned into all of these other bits of code!**
+
+***
+### Working with our 3-1-1 Data
+***
+
+So let's shift gears and work with our 3-1-1 data. We know we have a bunch of points and 
 
