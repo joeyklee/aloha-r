@@ -21,6 +21,8 @@ This is an intro to the R programming language which we will use throughout the 
 
 * First: download and install [R](http://cran.stat.sfu.ca/) - make sure you download the right one for your system.
 	* For Windows users, you can choose between 32-bit and 64-bit versions of R, you need to choose which one is right for your computer. If you're really unsure, then choose the 32-bit, BUT if you don't mind google searching "32-bit or 64-bit windows for <insert computer model here>" 
+	* ***SUPER IMPORTANT for Windows***: We've noticed some issues with R and the packages if you install R and R studio to to the "C:\Program Files" which is the default option. 
+		* Instead try to install R and RStudio on your "C:\" drive. If you have already installed R to your "C:\Program Files" and have been noticing problems, uninstall R and Rstudio and reinstall them in your "C:\" drive. 
 * Second: download and install [R studio](https://www.rstudio.com/products/RStudio/#Desktop) (make sure to install R first!)
 
 
@@ -415,6 +417,8 @@ We install packages in R by using the *install.packages()* function:
 	# install the maptools library
 	install.packages("GISTools")
 	install.packages('scales')
+
+**NOTE**: If you get an error like "cannot write to lib" or something on windows -- you **need to change the read/write permissions** on that folder. You can do so by navigating to that folder > right click > properties > check the box that says "read/write".
 
 After we install our R package, we need to import it to our script. We do so using the *library()* function:
 	
@@ -1763,4 +1767,5 @@ In this tutorial we covered a lot of ground. We're neither masters of R nor data
 * refine: web mapping
 * interact: web mapping
 
-
+## What's Next:
+Right now our maps can only live on our computers, but we will have to learn how to put them onto the internet. For now, continue exploring locally, but keep in mind that the next step is to get these things on the web.
