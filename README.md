@@ -624,7 +624,7 @@ Now we will use Nokia's Here API for their geocoder - their limit on geocoding r
 	data$lon = lon 
 	
 	# after geocoding, it's a good idea to write your file out!
-	ofile ='<insert filepath here>' 
+	ofile ='insert filepath here' 
 	write.csv(data, ofile)
 
 
@@ -974,44 +974,56 @@ First we set a folder where our shapefiles currently are living and where they w
 	# ------------------------------------------------- #
 	# -------------------- Filter --------------------- #
 	# ------------------------------------------------- #
-	# set an output folder for our shapefiles
-	shpfolder = '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/shp/'
+	# set an output folder for our geojson files
+	shpfolder = 'insert folder path here'
 
 Let's subset out data that is either an NA or falls outside of Vancouver's bounds:
 	
 	# Subset only the data if the coordinates are within our bounds or if it is not a NA
-	data_filter = subset(data, (lat <= 49.3) | (lat >= 49.2) & 
-		                       (lon <= -123) | (lon >= -123.1) & is.na(lon) )
+	data_filter = subset(data, (lat <= 49.313162) & (lat >= 49.199554) & 
+                       (lon <= -123.019028) & (lon >= -123.271371) & is.na(lon) == FALSE )
+    
+    # plot the data
+    plot(data_filter$lon, data_filter$lat)
 	
 With a filtered dataset, we can now write our file out to a shapefile to use later (in Mapbox studio)
           
 	# --- Convert Data to Shapefile --- #
 	# store coordinates in dataframe
 	coords_311 = data.frame(data_filter$lon_offset, data_filter$lat_offset)
+	
 	# create spatialPointsDataFrame
 	data_shp = SpatialPointsDataFrame(coords = coords_311, data = data_filter)
+	
 	# set the projection to wgs84
 	projection_wgs84 = CRS("+proj=longlat +datum=WGS84")
 	proj4string(data_shp) = projection_wgs84
+	
 	# write the file to a shp
-	writeOGR(data_shp, 
-	         shpfolder,
-	         'calls_1401',  driver="ESRI Shapefile")
+	# writeOGR(data_shp, 
+	#          shpfolder,
+	#          paste('calls_',yymm, sep=""),  driver="ESRI Shapefile")
+	
+	# write out the file to a geojson file
+	writeOGR(data_shp, paste(shpfolder,'calls_','1401.geojson', sep=""),layer='data_shp',  driver='GeoJSON')
 
-We have all the raw data, but remember that saying "overview first, details on demand"? Our brains simply can't understand the sheer number of points on the map. How about using some way of aggregating the points to a grid? Turns our hexagonal grids are quite good for conveying density of data points. I've created a hexagonal grid in QGIS at a resolution of about 100m x 112m:
+We have all the raw data, but remember that saying "overview first, details on demand"? Our brains simply can't understand the sheer number of points on the map. How about using some way of aggregating the points to a grid? Turns our hexagonal grids are quite good for conveying density of data points. I've created a hexagonal grid in QGIS at a resolution of about 250m x 280m:
 
 First let's read in the grid and reproject it from utm zone 10 north to wgs84:
 
 	# --- aggregate to a grid --- #
 	# ref: http://www.inside-r.org/packages/cran/GISTools/docs/poly.counts
 	# set the file name - combine the shpfolder with the name of the grid
-	grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
+	# grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
+	grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_250m.geojson'
 	# define the utm 10n projection
-	projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
+	# projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
 	# read in the hex grid setting the projection to utm10n
-	hexgrid = readShapeSpatial(grid_fn, proj4string = projection_utm10n )
+	# hexgrid = readShapeSpatial(grid_fn, proj4string = projection_utm10n )
+	hexgrid = readOGR(grid_fn, 'OGRGeoJSON')
 	# transform the projection to wgs84 to match the point file and store it to a new variable
 	hexgrid_wgs84 = spTransform(hexgrid, projection_wgs84)
+
 
 Next, let's use the **poly.counts()** function to count the number of points in each grid cell:
 
@@ -1021,18 +1033,23 @@ Next, let's use the **poly.counts()** function to count the number of points in 
 	grid_total_counts = data.frame(grid_cnt)
 	# set grid_total_counts dataframe to the hexgrid data
 	hexgrid_wgs84$data = grid_total_counts$grid_cnt
+	# remove all the grids without any calls
+	hexgrid_wgs84 = subset(hexgrid_wgs84, grid_cnt >0)
 	
 Finally, write out the data to a shpfile to use later in Mapbox studio.
 
 	# write the grid counts to a shp
-	writeOGR(hexgrid_wgs84, 
-	         shpfolder,
-	         'hgrid_100m-1401-counts',  driver="ESRI Shapefile")
+	# writeOGR(hexgrid_wgs84, 
+	#         shpfolder,
+	#         'hgrid_250m-1401-counts',  driver="ESRI Shapefile")
+	
+	writeOGR(hexgrid_wgs84,
+	paste(shpfolder,'hgrid_250m_','1401','_counts.geojson', sep=""),layer='hexgrid_wgs84',  driver='GeoJSON')
 
 
 Theoretically, we have enough data now to start putting together our web app which visualizes the 3-1-1 data. The next step will be to work with the representation and using the data we produced to filter the visuals with user interactions. 
 
-### Full script:
+### Full script (adapted):
 
 I've made some changes to the script to make it easier to iterate over the data for each month. Notice the section: "set file vars"
 
@@ -1046,11 +1063,11 @@ I've made some changes to the script to make it easier to iterate over the data 
 	# ------------------------------------------------- #
 	# --------------- Install Libararies --------------- #
 	# ------------------------------------------------- #
-	# install.packages("GISTools")
-	# install.packages('rgdal')
-	# install.packages('curl')
-	# install.packages("devtools")
-	# devtools::install_github("corynissen/geocodeHERE")
+	install.packages("GISTools")
+	install.packages('rgdal')
+	install.packages('curl')
+	install.packages("devtools")
+	devtools::install_github("corynissen/geocodeHERE")
 	
 	# Unused Libraries:
 	# install.packages("ggmap")
@@ -1068,9 +1085,9 @@ I've made some changes to the script to make it easier to iterate over the data 
 	# ---------------- Set File Vars ------------------ #
 	# ------------------------------------------------- #
 	# access from the interwebz using "curl"
-	fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201403CaseLocationsDetails.csv')
-	ofile ='/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201403CaseLocationsDetails-geo.csv' 
-	yymm = 1403
+	fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201401CaseLocationsDetails.csv')
+	ofile ='/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201401CaseLocationsDetails-geo.csv' 
+	yymm = 1401
 	
 	# ------------------------------------------------- #
 	# ------------------- Acquire --------------------- #
@@ -1185,12 +1202,13 @@ I've made some changes to the script to make it easier to iterate over the data 
 	# ------------------------------------------------- #
 	# -------------------- Filter --------------------- #
 	# ------------------------------------------------- #
-	# set an output folder for our shapefiles
+	# set an output folder for our geojson files
 	shpfolder = '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/shp/'
 	
 	# Subset only the data if the coordinates are within our bounds or if it is not a NA
-	data_filter = subset(data, (lat <= 49.3) | (lat >= 49.2) & 
-	                       (lon <= -123) | (lon >= -123.1) & is.na(lon) )
+	data_filter = subset(data, (lat <= 49.313162) & (lat >= 49.199554) & 
+	                       (lon <= -123.019028) & (lon >= -123.271371) & is.na(lon) == FALSE )
+	plot(data_filter$lon, data_filter$lat)
 	
 	# --- Convert Data to Shapefile --- #
 	# store coordinates in dataframe
@@ -1210,7 +1228,7 @@ I've made some changes to the script to make it easier to iterate over the data 
 	# ref: http://www.inside-r.org/packages/cran/GISTools/docs/poly.counts
 	# set the file name - combine the shpfolder with the name of the grid
 	# grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
-	grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_100m.geojson'
+	grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_250m.geojson'
 	# define the utm 10n projection
 	# projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
 	# read in the hex grid setting the projection to utm10n
@@ -1225,13 +1243,22 @@ I've made some changes to the script to make it easier to iterate over the data 
 	grid_total_counts = data.frame(grid_cnt)
 	# set grid_total_counts dataframe to the hexgrid data
 	hexgrid_wgs84$data = grid_total_counts$grid_cnt
+	# remove all the grids without any calls
+	hexgrid_wgs84 = subset(hexgrid_wgs84, grid_cnt >0)
 	
 	# write the grid counts to a shp
 	# writeOGR(hexgrid_wgs84, 
 	#          shpfolder,
 	#          paste('hgrid_100m-',yymm,'-counts', sep=""),  driver="ESRI Shapefile")
 	
-	writeOGR(hexgrid_wgs84, paste(shpfolder,'hgrid_100m_',as.character(yymm),'_counts', sep=""),layer='hexgrid_wgs84',  driver='GeoJSON')
+	writeOGR(hexgrid_wgs84, paste(shpfolder,
+	                              'hgrid_250m_',
+	                              yymm,
+	                              '_counts', sep=""),
+	         layer='hexgrid_wgs84',  driver='GeoJSON')
+	
+	
+
 
 
 
@@ -1377,8 +1404,363 @@ If you were to inspect your web map now, you would see basically:
 **Don't worry if this doesn't make any sense! Just know that what you wrote in R, turned into all of these other bits of code!**
 
 ***
-### Working with our 3-1-1 Data
+# Working with our 3-1-1 Data
 ***
+![](assets/img2/rleaflet-final.png)
 
-So let's shift gears and work with our 3-1-1 data. We know we have a bunch of points and 
+So let's shift gears and work with our 3-1-1 data. We now we have a bunch of points for the month of January and hexagonal grids with the call densities. How do we begin to interact with the data?
+
+**What are the main interactions we are going to work with?**:
+
+1. pop-up details (aka tool tips) on mouse click
+	* reveal specific case type
+	* reveal counts 
+2. toggle layers on and off
+
+
+** Let's get started with a rather verbose first example**
+
+## Version 1: Working with Point Data
+
+![](assets/img2/rleaflet-1.png)
+If you're continuing from the 3-1-1 data example, we should have a dataframe called **data_filter** (if you don't, then you can read in your data after geocoding step). We're going to use the **subset()** function to get store our data into separate variables.
+
+	# subset out your data_filter:
+	df_graffiti_noise = subset(data_filter, cid == 1)
+	df_street_traffic_maint = subset(data_filter, cid == 2)
+	df_garbage_recycling_organics = subset(data_filter, cid == 3)
+	df_water = subset(data_filter, cid == 4)
+	df_animal_vegetation = subset(data_filter, cid == 5)
+	df_other = subset(data_filter, cid == 0)
+
+Great, now each of our data categories lives in its own variable name.
+
+Now we're going to initiate our leaflet map:
+	
+	# initiate leaflet
+	m = leaflet()
+	
+	# add openstreetmap tiles (default)
+	m = addTiles(m)
+
+Now we are going to define some colors using leaflet's special **colorFactor()** function:
+
+	colorFactors = colorFactor(c('red', 'orange', 'purple', 'blue', 'pink', 'brown'), domain=data_filter$cid)
+
+ 
+What the colorFactor function does is take our list of colors and "maps" then to the domain that we defined. For example, when we apply the colorFactor() function to our data, it will color a point "red", if the "cid" in the data is equal to "0", "orange" if the "cid" is equal to 1, etc.
+
+The next step is to add our points to the map. We can do so using the **addCircleMarkers()** function: 
+
+	m = addCircleMarkers(
+						  m, 
+	                      lng=df_graffiti_noise$lon_offset, # we feed the longitude coordinates 
+	                      lat=df_graffiti_noise$lat_offset, 	                      popup=df_graffiti_noise$Case_Type, 
+	                      radius=2, 
+	                      stroke = FALSE, 
+	                      fillOpacity = 0.75, 
+	                      color = colorFactors(df_graffiti_noise$cid),
+	                      group = "1 - graffiti & noise"
+	                    )
+
+Here's what each argument is saying:
+
+* **lng**: we add our markers to our m
+* **lat**:we feed the latitude coordinates 
+* **popup**:each feature will show the Case_Type on click
+* **radius**: we set the circle radius size
+* **stroke**: we set stroke to false
+* **fillOpacity**: we set a fill opacity
+* **color**: the colorFactors() function is applying the color based on the value of the "cid"
+* **group**:we name the group
+
+
+<!---->
+
+Now repeat this function across the other layers:
+
+	                     
+	m = addCircleMarkers(m, 
+                      lng=df_street_traffic_maint$lon_offset, lat=df_street_traffic_maint$lat_offset, 
+                      popup=df_street_traffic_maint$Case_Type, 
+                      radius=2, 
+                      stroke = FALSE, fillOpacity = 0.75,
+                      color = colorFactors(df_street_traffic_maint$cid),
+                      group = "2 - street & traffic & maintenance")
+	m = addCircleMarkers(m, 
+	                      lng=df_garbage_recycling_organics$lon_offset, lat=df_garbage_recycling_organics$lat_offset, 
+	                      popup=df_garbage_recycling_organics$Case_Type, 
+	                      radius=2, 
+	                      stroke = FALSE, fillOpacity = 0.75,
+	                      color = colorFactors(df_garbage_recycling_organics$cid),
+	                      group = "3 - garbage related")
+	m = addCircleMarkers(m, 
+	                      lng=df_water$lon_offset, lat=df_water$lat_offset, 
+	                      popup=df_water$Case_Type, 
+	                      radius=2, 
+	                      stroke = FALSE, fillOpacity = 0.75,
+	                      color = colorFactors(df_water$cid),
+	                      group = "4 - water related")
+	m = addCircleMarkers(m, 
+	                      lng=df_animal_vegetation$lon_offset, lat=df_animal_vegetation$lat_offset, 
+	                      popup=df_animal_vegetation$Case_Type, 
+	                      radius=2,
+	                      stroke = FALSE, fillOpacity = 0.75,
+	                      color = colorFactors(df_animal_vegetation$cid),
+	                      group = "5 - animals & vegetation")
+	m = addCircleMarkers(m, 
+	                      lng=df_other$lon_offset, lat=df_other$lat_offset, 
+	                      popup=df_other$Case_Type, 
+	                      radius=2,
+	                      stroke = FALSE, fillOpacity = 0.75,
+	                      color = colorFactors(df_other$cid),
+	                      group = "0 - other")
+
+Now we're going to add some additional map tiles by using the **addTiles()** and the **addProviderTiles()** functions:
+
+	m = addTiles(m, group = "OSM (default)") 
+	m =  addProviderTiles(m,"Stamen.Toner", group = "Toner")
+	m =  addProviderTiles(m, "Stamen.TonerLite", group = "Toner Lite")
+
+We can now add in our layer toggle control using the **addLayersControl()** function - notice baseGroups are our tileLayers and the ouverlayGroups are our data layers:
+
+	m = addLayersControl(m,
+                     baseGroups = c("Toner Lite","Toner"),
+                     overlayGroups = c("1 - graffiti & noise", "2 - street & traffic & maintenance",
+                                    "3 - garbage related","4 - water related", "5 - animals & vegetation",
+                                    "0 - other")
+	)
+
+	# make the map
+	print(m)
+
+
+## Version 2: Optimizing version 1
+
+![](assets/img2/rleaflet-2.png)
+So we were able to make a functioning little web app, but we notice our code had some redundancies and make it hard to change colors and things. What do we do when we have redundancy? How about loops?!
+
+We already subset our data from before:
+
+	# subset out your data_filter:
+	df_graffiti_noise = subset(data_filter, cid == 1)
+	df_street_traffic_maint = subset(data_filter, cid == 2)
+	df_garbage_recycling_organics = subset(data_filter, cid == 3)
+	df_water = subset(data_filter, cid == 4)
+	df_animal_vegetation = subset(data_filter, cid == 5)
+	df_other = subset(data_filter, cid == 0)
+
+Now we're going to put those variables into a **list** so we can loop through them:
+	
+	data_filterlist = list(df_graffiti_noise = subset(data_filter, cid == 1),
+	                df_street_traffic_maint = subset(data_filter, cid == 2),
+	                df_garbage_recycling_organics = subset(data_filter, cid == 3),
+	                df_water = subset(data_filter, cid == 4),
+	                df_animal_vegetation = subset(data_filter, cid == 5),
+	                df_other = subset(data_filter, cid == 0))
+
+Remember we also had these groups associated with each variable? Let's put them in a list too:
+
+	layerlist = c("1 - graffiti & noise", "2 - street & traffic & maintenance",
+	              "3 - garbage related","4 - water related", "5 - animals & vegetation",
+	              "0 - other")
+
+We can keep that same color variable:
+
+	colorFactors = colorFactor(c('red', 'orange', 'purple', 'blue', 'pink', 'brown'), domain=data_filter$cid)
+
+Now we have our loop - each time through the loop, it is adding our markers to the map object: 
+
+	for (i in 1:length(data_filterlist)){
+	  m = addCircleMarkers(m, 
+	                        lng=data_filterlist[[i]]$lon_offset,
+	                        lat=data_filterlist[[i]]$lat_offset, 
+	                        popup=data_filterlist[[i]]$Case_Type, 
+	                        radius=2,
+	                        stroke = FALSE, 
+	                        fillOpacity = 0.75,
+	                        color = colorFactors(data_filterlist[[i]]$cid),
+	                        group = layerlist[i]
+	              )
+	  
+	}
+
+Now this time we flip "overlayGroups" and "baseGroups" so that we can get the radiobutton functionality - that way only 1 category of calls are shown: 
+
+	m = addTiles(m, "Stamen.TonerLite", group = "Toner Lite") 
+	m = addLayersControl(m,
+	                      overlayGroups = c("Toner Lite"),
+	                      baseGroups = layerlist
+	                      )
+	m
+
+
+## Version 3: Working with Polygons
+![](assets/img2/rleaflet-3.png)
+
+Remember we creates that hexagonal grid to aggregate our data to? Well, let's work with it to get a general impression of the call density across the city:
+
+If you haven't already, you should have the **rgdal** and the **GISTools** libraries loaded:
+
+	library(rgdal)
+	library(GISTools)
+
+Now we need to read in our hexgrid we aggregted our data to:
+
+	# define the filepath
+	hex_1401_fn = '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data_filter/calls_2014/shp/hgrid_250m_1401_counts.geojson'
+	
+	# read in the geojson
+	hex_1401 = readOGR(hex_1401_fn, "OGRGeoJSON")
+
+Now initiate a new map object:
+
+	m = leaflet()
+	m = addProviderTiles(m, "Stamen.TonerLite", group = "Toner Lite") 
+
+Like any choropleth map, we need to set a color scale. We can do so by using the **colorNumeric()** function which is part of the R leaflet package:
+
+	# Create a continuous palette function
+	pal = colorNumeric(
+	  palette = "Greens",
+	  domain = hex_1401$data
+	)
+
+We use the "Greens" color and set the "domain" to the column called "data" in our geojson file.
+
+Here's the **exciting stuff**. Let's add our polygon to the map:
+
+	m = addPolygons(m, 
+	                data = hex_1401,
+	                stroke = FALSE, 
+	                smoothFactor = 0.2, 
+	                fillOpacity = 1,
+	                color = ~pal(hex_1401$data),
+	                popup= paste("Number of calls: ",hex_1401$data, sep="")
+	                )
+	              
+let's break this down:
+
+* **m**: this is our map object
+* **data**: this is our spatialPolygonsDataframe
+* **smoothFactor**: addoing some smooth operator
+* **fillOpacity**: a cheeky 'ol fill opacity
+* **color**: we let our **colorNumeric()**function handle the color
+* **popup**: we set popup on click to our call density
+
+
+And what good is a choropleth map without a legend? Let's add one using the **addLegend()** function:
+
+	m = addLegend(m, "bottomright", pal = pal, values = hex_1401$data,
+	              title = "3-1-1 call density",
+	              labFormat = labelFormat(prefix = " "),
+	              opacity = 0.75
+	)
+	
+	print(m)
+
+***
+## Version 3: Synthesis
+![](assets/img2/rleaflet-final.png)
+
+
+Now that we've got the two pieces of our map - toggleable & clickable point layers and hex grid - let's put them together. 
+
+
+	# initiate leaflet map layer
+	m = leaflet()
+	m = addProviderTiles(m, "Stamen.TonerLite", group = "Toner Lite") 
+
+
+	# --- hex grid --- #
+	# store the file name of the geojson hex grid
+	hex_1401_fn = '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/shp/hgrid_250m_1401_counts.geojson'
+	
+	# read in the data
+	hex_1401 = readOGR(hex_1401_fn, "OGRGeoJSON")
+	
+	# Create a continuous palette function
+	pal = colorNumeric(
+	  palette = "Greens",
+	  domain = hex_1401$data
+	)
+	
+	# add hex grid
+	m = addPolygons(m, 
+	                data = hex_1401,
+	                stroke = FALSE, 
+	                smoothFactor = 0.2, 
+	                fillOpacity = 1,
+	                color = ~pal(hex_1401$data),
+	                popup= paste("Number of calls: ",hex_1401$data, sep=""),
+	                group = "hex"
+	)
+	
+	# add legend
+	m = addLegend(m, "bottomright", pal = pal, values = hex_1401$data,
+	              title = "3-1-1 call density",
+	              labFormat = labelFormat(prefix = " "),
+	              opacity = 0.75
+	)
+	
+	# --- points data --- #
+	
+	# subset out your data:
+	df_graffiti_noise = subset(data_filter, cid == 1)
+	df_street_traffic_maint = subset(data_filter, cid == 2)
+	df_garbage_recycling_organics = subset(data_filter, cid == 3)
+	df_water = subset(data_filter, cid == 4)
+	df_animal_vegetation = subset(data_filter, cid == 5)
+	df_other = subset(data_filter, cid == 0)
+	
+	data_filterlist = list(df_graffiti_noise = subset(data_filter, cid == 1),
+	                df_street_traffic_maint = subset(data_filter, cid == 2),
+	                df_garbage_recycling_organics = subset(data_filter, cid == 3),
+	                df_water = subset(data_filter, cid == 4),
+	                df_animal_vegetation = subset(data_filter, cid == 5),
+	                df_other = subset(data_filter, cid == 0))
+	layerlist = c("1 - graffiti & noise", "2 - street & traffic & maintenance",
+	              "3 - garbage related","4 - water related", "5 - animals & vegetation",
+	              "0 - other")
+
+	
+	colorFactors = colorFactor(c('red', 'orange', 'purple', 'blue', 'pink', 'brown'), domain=data_filter$cid)
+	for (i in 1:length(data_filterlist)){
+	  m = addCircleMarkers(m, 
+	                       lng=data_filterlist[[i]]$lon_offset, lat=data_filterlist[[i]]$lat_offset, 
+	                       popup=data_filterlist[[i]]$Case_Type, 
+	                       radius=2,
+	                       stroke = FALSE, fillOpacity = 0.75,
+	                       color = colorFactors(data_filterlist[[i]]$cid),
+	                       group = layerlist[i]
+	  )
+	  
+	}
+	
+	
+	m = addLayersControl(m,
+	                     overlayGroups = c("Toner Lite", "hex"),
+	                     baseGroups = layerlist
+	)
+	
+	# show map
+	print(m)
+
+***Congratulations you just made your first super awesome and fully functional web map using R!***
+
+**Now, play with oyur maps and try to identify weaknesses and strengths of your map. Are the colors appropriate? could they be bettter? what's missing? REFINE YOUR STUFF**
+
+***
+# Review:
+***
+In this tutorial we covered a lot of ground. We're neither masters of R nor data viz experts, however we got the chance to go through the entire data viz pipeline:
+
+* acquire: pulled 3-1-1 data from github
+* parse: manipulted table data and geocoded the data
+* filter: removed points that fell outside of the bounding box of vancouver
+* mine: classified the data & added jitter
+* represent: web mapping
+* refine: web mapping
+* interact: web mapping
+
 
