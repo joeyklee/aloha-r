@@ -8,11 +8,11 @@
 # ------------------------------------------------- #
 # --------------- Install Libararies --------------- #
 # ------------------------------------------------- #
-# install.packages("GISTools")
-# install.packages('rgdal')
-# install.packages('curl')
-# install.packages("devtools")
-# devtools::install_github("corynissen/geocodeHERE")
+install.packages("GISTools")
+install.packages('rgdal')
+install.packages('curl')
+install.packages("devtools")
+devtools::install_github("corynissen/geocodeHERE")
 
 # Unused Libraries:
 # install.packages("ggmap")
@@ -30,9 +30,9 @@ library(curl)
 # ---------------- Set File Vars ------------------ #
 # ------------------------------------------------- #
 # access from the interwebz using "curl"
-fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201403CaseLocationsDetails.csv')
-ofile ='/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201403CaseLocationsDetails-geo.csv' 
-yymm = 1403
+fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201401CaseLocationsDetails.csv')
+ofile ='/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201401CaseLocationsDetails-geo.csv' 
+yymm = 1401
 
 # ------------------------------------------------- #
 # ------------------- Acquire --------------------- #
@@ -147,12 +147,13 @@ print(top_calls)
 # ------------------------------------------------- #
 # -------------------- Filter --------------------- #
 # ------------------------------------------------- #
-# set an output folder for our shapefiles
+# set an output folder for our geojson files
 shpfolder = '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/shp/'
 
 # Subset only the data if the coordinates are within our bounds or if it is not a NA
-data_filter = subset(data, (lat <= 49.3) | (lat >= 49.2) & 
-                       (lon <= -123) | (lon >= -123.1) & is.na(lon) )
+data_filter = subset(data, (lat <= 49.313162) & (lat >= 49.199554) & 
+                       (lon <= -123.019028) & (lon >= -123.271371) & is.na(lon) == FALSE )
+plot(data_filter$lon, data_filter$lat)
 
 # --- Convert Data to Shapefile --- #
 # store coordinates in dataframe
@@ -172,7 +173,7 @@ writeOGR(data_shp, paste(shpfolder,'calls_',yymm, sep=""),layer='data_shp',  dri
 # ref: http://www.inside-r.org/packages/cran/GISTools/docs/poly.counts
 # set the file name - combine the shpfolder with the name of the grid
 # grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
-grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_100m.geojson'
+grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_250m.geojson'
 # define the utm 10n projection
 # projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
 # read in the hex grid setting the projection to utm10n
@@ -187,12 +188,18 @@ grid_cnt = poly.counts(data_shp, hexgrid_wgs84)
 grid_total_counts = data.frame(grid_cnt)
 # set grid_total_counts dataframe to the hexgrid data
 hexgrid_wgs84$data = grid_total_counts$grid_cnt
+# remove all the grids without any calls
+hexgrid_wgs84 = subset(hexgrid_wgs84, grid_cnt >0)
 
 # write the grid counts to a shp
 # writeOGR(hexgrid_wgs84, 
 #          shpfolder,
 #          paste('hgrid_100m-',yymm,'-counts', sep=""),  driver="ESRI Shapefile")
 
-writeOGR(hexgrid_wgs84, paste(shpfolder,'hgrid_100m_',as.character(yymm),'_counts', sep=""),layer='hexgrid_wgs84',  driver='GeoJSON')
+writeOGR(hexgrid_wgs84, paste(shpfolder,
+                              'hgrid_250m_',
+                              yymm,
+                              '_counts', sep=""),
+         layer='hexgrid_wgs84',  driver='GeoJSON')
 
 
