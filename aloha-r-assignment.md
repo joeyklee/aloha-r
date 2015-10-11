@@ -120,10 +120,11 @@ Your web map will include:
 You will be marked on:
 
 1. successful submission of the .html file
-2. your map aesthetics and functionality
-3. your code - well commented and runs
-4. your documentation - is your code well explained? do you demonstrate an understanding of the data viz process?
-5. your insight - is your insight regarding the visualization thoughtful and justified? 
+2. successful submission of your dataset as a .csv file that includes that lat/lon coordinates of your geocoding.
+3. your map aesthetics and functionality
+4. your code - well commented and runs
+5. your documentation - is your code well explained? do you demonstrate an understanding of the data viz process?
+6. your insight - is your insight regarding the visualization thoughtful and justified? 
 
 ***
 ## Things to keep in mind:
