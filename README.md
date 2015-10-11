@@ -490,7 +490,7 @@ And a scale bar:
 
 ***
 
-## [Click here to go to the R workshop]()
+## [Click here to go to the R workshop](https://github.com/joeyklee/aloha-r/blob/master/code/vancouver311.Rmd)
 
 <!--# Project: What are Vancouverites Complaining About?
 ![](assets/img2/prototype.png)

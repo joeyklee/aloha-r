@@ -470,7 +470,7 @@ First let's read in the grid and reproject it from utm zone 10 north to wgs84:
 # ref: http://www.inside-r.org/packages/cran/GISTools/docs/poly.counts
 # set the file name - combine the shpfolder with the name of the grid
 # grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
-grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_250m.geojson'
+grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/geo/hgrid_250m.geojson'
 
 # define the utm 10n projection
 # projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
@@ -717,7 +717,7 @@ writeOGR(data_shp, opoints_geojson, layer="data_shp", driver="GeoJSON", check_ex
 # ref: http://www.inside-r.org/packages/cran/GISTools/docs/poly.counts
 # set the file name - combine the shpfolder with the name of the grid
 # grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
-grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_250m.geojson'
+grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/geo/hgrid_250m.geojson'
 
 # define the utm 10n projection
 # projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
