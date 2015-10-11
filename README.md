@@ -489,9 +489,11 @@ And a scale bar:
 ***Now you're more than primed to construct and deconstruct our first real-world R project!***
 
 ***
-# Project: What are Vancouverites Complaining About?
-![](assets/img2/prototype.png)
 
+## [Click here to go to the R workshop]()
+
+<!--# Project: What are Vancouverites Complaining About?
+![](assets/img2/prototype.png)
 ## Brief:
 The City of Vancouver releases a dataset of the 3-1-1 phone calls - the general hotline regarding maintenance issues in the city. Currently there is no tool to visualize and access the data. How can citizens engage the city for these matters if there's no way to work with the data?  In the name of civic "hacking", the project brief is to develop a project that:
 
@@ -502,11 +504,11 @@ The City of Vancouver releases a dataset of the 3-1-1 phone calls - the general 
 As a data and design team, you must deliver:
 
 1. a script written in an open source programming language that can parse, filter, and mine the 3-1-1 data - you will work with the 2014 data.
-2. a web application that allows citizens of Vancouver to visualize the spatial and temporal aspects of the data as well as any insights derived from the data mining.
-3. the code must be open and shared (e.g. Github)
+2. an interactive web map that allows citizens of Vancouver to visualize the spatial aspects of the data.
+3. the code must be open and shared (e.g. Github or wordpress)
 
 ## Timeline:
-The timeline for the project is 3 weeks:
+The timeline for the project is 9 hours total:
 
 1. Week 1: Data Handling with R - acquire, parse, filter, & mine 3-1-1 data.
 2. Week 2: Data Handling Continued / Interactive Web Mapping
@@ -1264,11 +1266,11 @@ I've made some changes to the script to make it easier to iterate over the data 
 	
 
 
-
+-->
 
 	
 	
-
+<!--
 
 ***
 # Creating the Full Dataset
@@ -1286,6 +1288,8 @@ Let's run the script on the remaining other data for the other months. We have t
 
 It doesn't make sense for **all** of us to run this script for each month. Can we be coordinated enough to break up the task in smaller groups? How do we share the data afterward? What is a good naming convention for each of the files? These are all decisions we will have to make! 
 
+-->
+<!--
 ***
 # Your own web map with R Leaflet
 ***
@@ -1379,7 +1383,7 @@ The convention for naming .html files is "index", therefore, let's name our file
 
 ![](assets/img2/save-leafletr.png)
 
-If you were to inspect your web map now, you would see basically:
+If you were to inspect your web map now, you would see basically:***
 	
 	<!DOCTYPE html>
 	<html>
@@ -1479,7 +1483,6 @@ Here's what each argument is saying:
 * **group**:we name the group
 
 
-<!---->
 
 Now repeat this function across the other layers:
 
@@ -1526,7 +1529,7 @@ Now we're going to add some additional map tiles by using the **addTiles()** and
 	m =  addProviderTiles(m,"Stamen.Toner", group = "Toner")
 	m =  addProviderTiles(m, "Stamen.TonerLite", group = "Toner Lite")
 
-We can now add in our layer toggle control using the **addLayersControl()** function - notice baseGroups are our tileLayers and the ouverlayGroups are our data layers:
+We can now add in our layer toggle control using the **addLayersControl()** function - notice baseGroups are our tileLayers and the overlayGroups are our data layers:
 
 	m = addLayersControl(m,
                      baseGroups = c("Toner Lite","Toner"),
@@ -1769,3 +1772,4 @@ In this tutorial we covered a lot of ground. We're neither masters of R nor data
 
 ## What's Next:
 Right now our maps can only live on our computers, but we will have to learn how to put them onto the internet. For now, continue exploring locally, but keep in mind that the next step is to get these things on the web.
+-->
