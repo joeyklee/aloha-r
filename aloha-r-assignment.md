@@ -11,6 +11,11 @@ Using the skills you picked up from the last 3 weeks, choose 1 year of data from
 
 You should be able to tell some sort of narrative with your visualization. -->
 
+## Data:
+
+* [Vancouver Crime Data](http://data.vancouver.ca/datacatalogue/crime-data-details.htm)
+* [250 m Hex Grid](https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_250m.geojson)
+
 ## Web map requirements:
 
 ![http://joeyklee.github.io/temp/rleaflet/](assets/img2/rleaflet-final.png)
@@ -109,6 +114,7 @@ Your web map will include:
 	
 			vancrime2014_joey_lee.csv
 
+***
 ## Marking :
 
 You will be marked on:
@@ -119,12 +125,14 @@ You will be marked on:
 4. your documentation - is your code well explained? do you demonstrate an understanding of the data viz process?
 5. your insight - is your insight regarding the visualization thoughtful and justified? 
 
+***
 ## Things to keep in mind:
 
 * You will use R to make your mini-project.
 * This is a quick mini-project and should not take more than 3 hours of class time + a few hours outside of class. Stay focused.
 * Comment your code and make sure it is clean and readable -and that it runs! 
 
+***
 ## Sign up Sheet:
 
 1. 2014:
