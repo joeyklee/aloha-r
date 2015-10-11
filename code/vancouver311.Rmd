@@ -55,7 +55,7 @@ install.packages('rgdal')
 install.packages('curl')
 install.packages("devtools")
 devtools::install_github("corynissen/geocodeHERE")
-	
+  
 # Unused Libraries:
 # install.packages("ggmap")
 # library(ggmap)
@@ -129,7 +129,7 @@ print(head(data$full_address))
 
 Now we will use Nokia's Here API for their geocoder - their limit on geocoding requests is ~10,000 calls per 24 hours. This works well since our data is ~10,000 features. This will take all of our addresses and return lat/lon coordinates for us to use. The total process takes about 20 min which is pretty fast - possibly faster with a good internet connection. 
 
-```{r, eval=FALSE}
+```{r}
 
 # Geocode the events - we use Nokia's Here API
 # Create an empty vector for lat and lon coordinates
@@ -143,7 +143,7 @@ for(i in 1: length(data$full_address)){
   # append the longitude of the geocoded address to the lon vector
   lon = c(lon,geocodeHERE_simple(address)$Longitude)
   # at each iteration through the loop, print the coordinates - takes about 20 min.
-  print(paste("#",i,", ", lat[i], lon[i], sep=","))
+#   print(paste("#",i,", ", lat[i], lon[i], sep=","))
 }
 
 # add the lat lon coordinates to the dataframe
@@ -154,11 +154,11 @@ data$lon = lon
 
 After a major computational task (e.g. geocoding) you probably want to **write** your file out so that you keep a copy of your data at this step. In side the quotes for the variable **ofile**, put in the path to where you want your data stored.  
 
-```{r, eval=FALSE}
+```{r}
 # after geocoding, it's a good idea to write your file out!
 # joey's computer (mac): '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201401CaseLocationsDetails-geo.csv'
 # sally's computer (windows): 'c:\\Sally\\Documents\\van311-project\\201401CaseLocationsDetails-geo.csv'
-ofile ='insert filepath here' 
+ofile ='/Users/Jozo/Desktop/temp-geo.csv' 
 write.csv(data, ofile)
 ```
 
@@ -419,7 +419,7 @@ plot(data_filter$lon, data_filter$lat)
 # If everthing looks good, we might also write out our file:
 # joey's computer (mac): '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201401CaseLocationsDetails-geo-filtered.csv'
 # sally's computer (windows): 'c:\\Sally\\Documents\\van311-project\\201401CaseLocationsDetails-geo-filtered.csv'
-ofile_filtered = 'insert filepath here'
+ofile_filtered = '/Users/Jozo/Desktop/temp-geo-filtered.csv'
 write.csv(data_filter, ofile_filtered)
 ```
 **NOTE**: we write another file out here so we can save our "final dataset"
@@ -445,7 +445,7 @@ proj4string(data_shp) = projection_wgs84
 # set an output folder for our geojson files:
 # joey's computer (mac): '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/geo/'
 # sally's computer (windows): 'c:\\Sally\\Documents\\van311-project\\data\\geo\\'
-geofolder = 'insert folder path here'
+geofolder = '/Users/Jozo/Desktop/'
 
 # Join the folderpath to each file name:
 opoints_shp = paste(geofolder, "calls_","1401",".shp", sep="")
@@ -454,10 +454,10 @@ opoints_geojson = paste(geofolder, "calls_","1401",".geojson", sep="")
 print(opoints_geojson) # print this out to see where your file will go & what it will be called
 
 # write the file to a shp
-writeOGR(data_shp, opoints_shp, layer="data_shp", driver="ESRI Shapefile", check_exists = FALSE)
+writeOGR(check_exists = FALSE, data_shp, opoints_shp, layer="data_shp", driver="ESRI Shapefile")
 
 # write file to geojson
-writeOGR(data_shp, opoints_geojson, layer="data_shp", driver="GeoJSON", check_exists = FALSE)
+writeOGR(check_exists = FALSE, data_shp, opoints_geojson, layer="data_shp", driver="GeoJSON")
 
 ```
 
@@ -499,10 +499,10 @@ Finally, write out the data to a **shapefile** and **geojson** - we will use the
 
 ```{r}
 # define the output names:
-ohex_shp = paste(geoFolder, "hexgrid_250m_","1401","_cnts",".shp")
+ohex_shp = paste(geofolder, "hexgrid_250m_","1401","_cnts",".shp")
 print(ohex_shp)
 
-ohex_geojson = paste(geoFolder, "hexgrid_250m_","1401","_cnts",".geojson") 
+ohex_geojson = paste(geofolder, "hexgrid_250m_","1401","_cnts",".geojson") 
 print(ohex_geojson)
   
 # write the file to a shp
@@ -736,17 +736,17 @@ hexgrid_wgs84$data = grid_total_counts$grid_cnt
 hexgrid_wgs84 = subset(hexgrid_wgs84, grid_cnt >0)
 
 # define the output names:
-ohex_shp = paste(geoFolder, "hexgrid_250m_","1401","_cnts",".shp")
+ohex_shp = paste(geofolder, "hexgrid_250m_","1401","_cnts",".shp", sep="")
 print(ohex_shp)
 
-ohex_geojson = paste(geoFolder, "hexgrid_250m_","1401","_cnts",".geojson") 
+ohex_geojson = paste(geofolder, "hexgrid_250m_","1401","_cnts",".geojson", sep="") 
 print(ohex_geojson)
   
 # write the file to a shp
-writeOGR(hexgrid_wgs84, ohex_shp, layer="hexgrid_wgs84", driver="ESRI Shapefile", check_exists = FALSE)
+writeOGR(check_exists = FALSE, hexgrid_wgs84, ohex_shp, layer="hexgrid_wgs84", driver="ESRI Shapefile")
 
 # write file to geojson
-writeOGR(hexgrid_wgs84, ohex_geojson, layer="hexgrid_wgs84", driver="GeoJSON", check_exists = FALSE)
+writeOGR(check_exists = FALSE, hexgrid_wgs84, ohex_geojson, layer="hexgrid_wgs84", driver="GeoJSON")
 ```
 
 ***
@@ -777,7 +777,7 @@ So if we know that to make a web map generally is composed of:
 
 1. map tiles (most of the time)
   
-	![](../assets/img2/tiles-example.png)
+  ![](../assets/img2/tiles-example.png)
 
 2. geodata
 
@@ -837,7 +837,7 @@ Run these lines of code and create your first interactive map with R!
 	m = addMarkers(m, lng=-123.256168, lat=49.266063, popup="T")
 	
 	# we can "run"/compile the map, by running the printing it
-	print(m)
+	m
 
 ```
 Now if we **export** the map and **save as webpage...**:
@@ -901,7 +901,7 @@ m = leaflet()
 m = addTiles(m)
 
 # you can now see that our maptiles are rendered
-print(m)
+m
 
 ```
 
@@ -1001,7 +1001,7 @@ m = addLayersControl(m,
 )
 
 # make the map
-print(m)
+m
 ```
 
 ***
@@ -1146,7 +1146,7 @@ m = addLegend(m, "bottomright", pal = pal, values = hex_1401$data,
               opacity = 0.75
 )
 
-print(m)
+m
 
 ```
 
@@ -1235,7 +1235,7 @@ m = addLayersControl(m,
 )
 
 # show map
-print(m)
+m
 ```
 
 ***Congratulations you just made your first super awesome and fully functional web map using R!***
