@@ -1,0 +1,1259 @@
+# Project: What are Vancouverites Complaining About?
+## Brief:
+The City of Vancouver releases a dataset of the 3-1-1 phone calls - the general hotline regarding maintenance issues in the city. Currently there is no tool to visualize and access the data. How can citizens engage the city for these matters if there's no way to work with the data?  In the name of civic "hacking", the project brief is to develop a project that:
+
+1. can parse and handle the BIG data being delivered by the city.
+2. shows the 3-1-1 data and potentially highlights insights derived from the data in an accessible web application.
+
+## Requirements:
+As a data and design team, you must deliver:
+
+1. a script written in an open source programming language that can parse, filter, and mine the 3-1-1 data - you will work with the 2014 data.
+2. an interactive web map that allows citizens of Vancouver to visualize the spatial aspects of the data.
+3. the code must be open and shared (e.g. Github or wordpress)
+
+## Timeline:
+The timeline for the project is 9 hours total:
+
+1. Week 1: Data Handling with R - acquire, parse, filter, & mine 3-1-1 data.
+2. Week 2: Data Handling Continued / Interactive Web Mapping
+3. Week 3: Interactive Web Mapping Project Synthesis
+
+## Overview:
+We will use this project to go through Ben Fry's Data Visualization Pipeline. 
+
+This will be a collaborative project - you will need to communicate within and accross teams and be organized and have a well documented workflow. This will become clear when we generate the interactive map tile layers later on in the project.
+
+***
+
+## Process: Exploring the 3-1-1 data
+
+![](../assets/img2/workflow-sketch.JPG)
+
+Data viz is hard and in the end comes down to a lot of experimentation and exploration. This script attempts to showcase how the data viz pipeline is done in practice and how it is far from a linear process, but rather a very interactive and dynamic process.
+
+### setup:
+Let's being our script by a nice cheeky commented header:
+
+```{r}
+######################################################
+# Vancouver 3-1-1: Data Processing Script
+# Date:
+# By: 
+# Desc: 
+######################################################
+```
+
+We noticed how libraries can help us to read in geographic data and even help us make new scales. Since this is a bigger project, we're going to need to help of some more libraries:
+
+```{r, eval=FALSE}
+# ------------------------------------------------- #
+# --------------- Install Libararies --------------- #
+# ------------------------------------------------- #
+install.packages("GISTools")
+install.packages('rgdal')
+install.packages('curl')
+install.packages("devtools")
+devtools::install_github("corynissen/geocodeHERE")
+	
+# Unused Libraries:
+# install.packages("ggmap")
+# library(ggmap)
+
+```
+
+You will notice we have some unused libraries - these are some that I started out using in the beginning, but decided to not use. I kept them here just for future reference. NOTE: ggmap was previously used for it's **geocode()** function - but with google's 2500 api call limit, it wasn't enough for the 10,000+ geocoding events we would need for our project.
+
+Now that you've **installed** the libraries now Let's **load up our libraries** to make all those new functions available to us:
+
+```{r}
+# ------------------------------------------------- #
+# ---------------- Load Libararies ----------------- #
+# ------------------------------------------------- #
+library(GISTools)
+library(rgdal)
+library(geocodeHERE)
+library(curl)
+```
+
+### Acquire
+
+We use the **curl()** function to make http/https requests from the web to get data and used our **read.csv()** function to read our table in to R.
+
+```{r}
+
+# ------------------------------------------------- #
+# ------------------- Acquire --------------------- #
+# ------------------------------------------------- #
+# access from the interwebz using "curl"
+fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201401CaseLocationsDetails.csv')
+# Read data as csv
+data = read.csv(fname, header=T)
+# inspect your data
+print(head(data))
+```
+
+### Parse
+
+Upon inspecting our data, we notice we have the addresses, but the city has put int "#'s" to help with the anonymity of the callers. Furthermore, we notice that we don't have any lat/lon coordinates to work with to turn our 3-1-1 calls into a something spatial. How can we develop a solution for this?
+
+First let's sub out the "#" with "0":
+
+```{r}
+# ------------------------------------------------- #
+# -------------- Parse: Geocoder ------------------- #
+# ------------------------------------------------- #
+# change intersection to 00's
+data$h_block = gsub("#", "0", data$Hundred_Block)
+print(head(data$h_block))
+```
+
+Next let's concatenate the newly created "h_block" column with the **Street_Name** column, and a string that specifices that all of the calls are from **Vancouver, BC, Cananda**:
+
+```{r}
+# Join the strings from each column together & add "Vancouver, BC":
+data$full_address = paste(data$h_block, 
+                          paste(data$Street_Name,
+                                "Vancouver, BC, Canada",
+                                sep=", "),
+                          sep=" ")
+
+```
+
+We also notice that the city has put in the word "intersection" for those calls that refer to an intersection. Let's take those out so as to make our geocoding parsing potentially easier:
+
+```{r}
+data$full_address = gsub("Intersection", "", data$full_address)
+print(head(data$full_address))
+```
+
+Now we will use Nokia's Here API for their geocoder - their limit on geocoding requests is ~10,000 calls per 24 hours. This works well since our data is ~10,000 features. This will take all of our addresses and return lat/lon coordinates for us to use. The total process takes about 20 min which is pretty fast - possibly faster with a good internet connection. 
+
+```{r, eval=FALSE}
+
+# Geocode the events - we use Nokia's Here API
+# Create an empty vector for lat and lon coordinates
+lat = c(); lon = c()
+# loop through the addresses
+for(i in 1: length(data$full_address)){
+  # store the address at index "i" as a character
+  address = as.character(data$full_address[i])
+  # append the latitude of the geocoded address to the lat vector
+  lat = c(lat,geocodeHERE_simple(address)$Latitude)
+  # append the longitude of the geocoded address to the lon vector
+  lon = c(lon,geocodeHERE_simple(address)$Longitude)
+  # at each iteration through the loop, print the coordinates - takes about 20 min.
+  print(paste("#",i,", ", lat[i], lon[i], sep=","))
+}
+
+# add the lat lon coordinates to the dataframe
+data$lat = lat
+data$lon = lon 
+
+```
+
+After a major computational task (e.g. geocoding) you probably want to **write** your file out so that you keep a copy of your data at this step. In side the quotes for the variable **ofile**, put in the path to where you want your data stored.  
+
+```{r, eval=FALSE}
+# after geocoding, it's a good idea to write your file out!
+# joey's computer (mac): '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201401CaseLocationsDetails-geo.csv'
+# sally's computer (windows): 'c:\\Sally\\Documents\\van311-project\\201401CaseLocationsDetails-geo.csv'
+ofile ='insert filepath here' 
+write.csv(data, ofile)
+```
+
+### Mine
+
+We won't be doing any heavy analysis on the data, but we will try to tease out some categories to make the data more intuitive for exploring. The first thing we'll do is to see what are the types of unique cases that are being called in:
+
+```{r}
+# ------------------------------------------------- #
+# --------------------- Mine ---------------------- #
+# ------------------------------------------------- #
+# --- Examine the unique cases --- #
+
+# examine how the cases are grouped - are these intuitive?
+unique(data$Department)
+unique(data$Division)
+
+# examine the types of cases - can we make new groups that are more useful?
+# unique(data$Case_Type)
+# Print each unique case on a new line for easier inspection
+for (i in 1:length(unique(data$Case_Type))){
+  print(unique(data$Case_Type)[i], max.levels=0)
+}
+```
+
+Whoa! That's a heck of a lot of cases. Our role of data visualization people is to take this mess and try to make sense of it so that we can represent it in a manner that is more intuitive and possibly delightful. There are a bunch of ways that we can organize these cases into specific classes, so I invite you to think about how we might best organize these. For now, I've come up with **6 classes** that bin these cases together. **Does this make sense? Should we change it?**:
+
+```
+// --- graffiti and noise --- //
+Graffiti Removal - City Property
+Graffiti Removal - External Organization
+PUI Noise Complaint Case
+PUI Noise General Inquiry Case
+
+// --- street surface & Maintenance --- //
+Street Furniture Repair and Maintenance Request
+Street Cleaning & Debris Pickup
+Street Light - Out
+Street Tree Work Request SR
+Street Litter Can Request
+Streets - General Issues
+Street Light - Pole Repair
+Street - Surface Water Flooding
+Street - Repair
+Street Light - New/Relocation
+Street Light - Flat Glass Fixture Request
+Street and Traffic Light - Utility Damage
+Street Sign - New
+Crosswalk Marking - New
+Boulevard Maintenance Issues
+Bicycle Route Map Request
+Sidewalk - Repair
+Pothole - Repair
+Pavement Markings Request - New/Modify
+Pavement Marking - Repair
+Sewer Pipe Inquiries
+Sewer Manhole Issues
+Sewer General Inquiries
+Sewer Design General Inquiries
+Sewer Separation Inspection Cancellation Case
+Sewer Utility Damage
+Sewer Odour Complaints
+Plumbing and Gas Inspection Cancellation Case
+Snow Angel Program - Individual Volunteer
+Snow & Ice Removal - City Property
+Snow and Ice Removal - Sidewalk Bylaw Violation
+Snow and Ice Removal - Sidewalk Bylaw Inquiry
+Traffic & Pedestrian Signal - New
+Traffic Calming Request
+Traffic & Pedestrian Signal - Modify
+Traffic Sign - Modify
+Street and Traffic Light - Utility Damage
+Traffic Sign - New
+Traffic Count Request
+Truck Violation
+Residential Parking Requests
+Parking Meter Requests
+Abandoned Vehicle Request
+
+// --- garbage, Recycling & organics --- //
+Missed Garbage Pickup
+Abandoned Garbage Pickup - City Property & Parks
+Cart - Garbage
+Illegal Dumping/Abandoned Garbage Pickup
+Parks Litter Can or Cart Request
+Recycling Bag Request
+Missed Recycling Pickup
+Missed Apartment Recycling Pickup
+Recycling Box Request
+Cart - Apartment Recycling
+Apartment Recycling - Registration Request
+Transfer Station & Recycling - General Inquiries
+Blue Box and Leaf Removal Guide Mail-Out Request
+Missed Yard Trimmings and Food Scraps Pickup
+Cart - Green (Yard Trimmings and Food Scraps)
+Green Bin Program - Feedback and General Inquiry
+Collection Calendar Mail-Out Request
+
+// --- Water Related Issues --- //
+Water Leaks/Breaks
+Water Service Turn On/Off Request
+Water Service Locate Request
+Street - Surface Water Flooding
+Water Work Site Complaint
+Water Hydrant Issue
+Water General Inquiry
+Water General Work Request
+Water Pressure or No Water Issue
+Water Conservation Violation
+Water Meter Issue
+Water Damage To City Water System
+Catch Basin Issues
+
+// --- animal and vegetation related --- //
+Dead Animal Pickup Case
+Animal Control General Inquiry Case
+Animal Complaint - Non-Emergency Case
+Animal Cremation Case
+Dead Skunk Pickup
+Lost Pets Case
+Holding Stray Case
+Chafer Beetle Feedback
+Vegetation Maintenance SR
+Trees and Vegetation Encroachment - City Property
+Horticulture Inquiry on Right-of-Way
+
+// --- Other --- //
+Poster/Sign Removal Request
+Sign - Repair
+Curbside Sign - New
+Curbside Sign - Modify
+Banner Request
+Fire Reinspection Request for Firehall
+Fire Reinspection Request for Inspector
+Citizen Feedback
+Wheelchair Curb/Ramp Request
+Wheelchair
+PRB_Park Ranger SR
+Building Plans Information Request
+Building Inspection Cancellation Case
+Licence Payment Request Case
+Gone Out of Business Case
+FPB_General Inquiry Case
+PUI General Inquiry Case
+Electrical Inspection Cancellation Case
+Bridges & Structures - Repair
+Secondary Suite Information Request
+General Information Request SR
+Election General Concerns
+Occupancy Permit Information Request
+Home Safety Check Request Case
+Flag Request
+Homelessness/Transient Issue
+```
+
+In the end our 6 classes are:
+
+1. graffiti and noise
+2. street surface & Maintenance
+3. animal and vegetation related
+4. water related
+5. garbage, Recycling & organics related
+6. other
+
+Now that we have our classes, we can put them in arrays:
+
+```{r}
+# Determine classes to group case types:
+
+# graffiti and noise
+graffiti_noise = c('Graffiti Removal - City Property','Graffiti Removal - External Organization','PUI Noise Complaint Case','PUI Noise General Inquiry Case')
+
+# street surface & Maintenance
+street_traffic_maint = c('Street Furniture Repair and Maintenance Request','Street Cleaning & Debris Pickup','Street Light - Out','Street Tree Work Request SR','Street Litter Can Request','Streets - General Issues','Street Light - Pole Repair','Street - Surface Water Flooding','Street - Repair','Street Light - New/Relocation','Street Light - Flat Glass Fixture Request','Street and Traffic Light - Utility Damage','Street Sign - New','Crosswalk Marking - New','Boulevard Maintenance Issues','Bicycle Route Map Request','Sidewalk - Repair','Pothole - Repair','Pavement Markings Request - New/Modify','Pavement Marking - Repair','Sewer Pipe Inquiries','Sewer Manhole Issues','Sewer General Inquiries','Sewer Design General Inquiries','Sewer Separation Inspection Cancellation Case','Sewer Utility Damage','Sewer Odour Complaints','Plumbing and Gas Inspection Cancellation Case','Snow Angel Program - Individual Volunteer','Snow & Ice Removal - City Property','Snow and Ice Removal - Sidewalk Bylaw Violation','Snow and Ice Removal - Sidewalk Bylaw Inquiry','Traffic & Pedestrian Signal - New','Traffic Calming Request','Traffic & Pedestrian Signal - Modify','Traffic Sign - Modify','Street and Traffic Light - Utility Damage','Traffic Sign - New','Traffic Count Request','Truck Violation','Residential Parking Requests','Parking Meter Requests','Abandoned Vehicle Request')
+
+# garbage, Recycling & organics related
+garbage_recycling_organics = c('Missed Garbage Pickup','Abandoned Garbage Pickup - City Property & Parks','Cart - Garbage','Illegal Dumping/Abandoned Garbage Pickup','Parks Litter Can or Cart Request','Recycling Bag Request','Missed Recycling Pickup','Missed Apartment Recycling Pickup','Recycling Box Request','Cart - Apartment Recycling','Apartment Recycling - Registration Request','Transfer Station & Recycling - General Inquiries','Blue Box and Leaf Removal Guide Mail-Out Request','Missed Yard Trimmings and Food Scraps Pickup','Cart - Green (Yard Trimmings and Food Scraps)','Green Bin Program - Feedback and General Inquiry','Collection Calendar Mail-Out Request')
+
+# water related
+water = c('Water Leaks/Breaks','Water Service Turn On/Off Request','Water Service Locate Request','Street - Surface Water Flooding','Water Work Site Complaint','Water Hydrant Issue','Water General Inquiry','Water General Work Request','Water Pressure or No Water Issue','Water Conservation Violation','Water Meter Issue','Water Damage To City Water System','Catch Basin Issues')
+
+#animal and vegetation related
+animal_vegetation = c('Dead Animal Pickup Case','Animal Control General Inquiry Case','Animal Complaint - Non-Emergency Case','Animal Cremation Case','Dead Skunk Pickup','Lost Pets Case','Holding Stray Case','Chafer Beetle Feedback','Vegetation Maintenance SR','Trees and Vegetation Encroachment - City Property','Horticulture Inquiry on Right-of-Way')
+
+# other
+other = c('Poster/Sign Removal Request','Sign - Repair','Curbside Sign - New','Curbside Sign - Modify','Banner Request','Fire Reinspection Request for Firehall','Fire Reinspection Request for Inspector','Citizen Feedback','Wheelchair Curb/Ramp Request','Wheelchair','PRB_Park Ranger SR','Building Plans Information Request','Building Inspection Cancellation Case','Licence Payment Request Case','Gone Out of Business Case','FPB_General Inquiry Case','PUI General Inquiry Case','Electrical Inspection Cancellation Case','Bridges & Structures - Repair','Secondary Suite Information Request','General Information Request SR','Election General Concerns','Occupancy Permit Information Request','Home Safety Check Request Case','Flag Request','Homelessness/Transient Issue')
+
+```
+
+We can then run through the lists and give each of the classes and **cid** so that it is easier to identify and represent them later:
+
+```{r}
+# give class id numbers:
+data$cid = 9999
+for(i in 1:length(data$Case_Type)){
+  if(data$Case_Type[i] %in% graffiti_noise){
+    data$cid[i] = 1    
+  }else if(data$Case_Type[i] %in% street_traffic_maint){
+    data$cid[i] = 2   
+  }else if(data$Case_Type[i] %in% garbage_recycling_organics){
+    data$cid[i] = 3   
+  }else if(data$Case_Type[i] %in% water){
+    data$cid[i] = 4   
+  }else if(data$Case_Type[i] %in% animal_vegetation){
+    data$cid[i] = 5   
+  }else{
+    data$cid[i] = 0   
+  }
+}
+
+```
+
+Great, so we now have our data binned into specific groups in a way that seems to make sense. However, if do a little poking around at our data, we notice that since our addresses are aggregated a lot of times to the same address point, our lat/lon coordinates come out the same. How can we deal with this spatial overlap?
+
+One way to do this is to add in some "jitter" to each point if it happens to have the same coordinates.
+
+```{r}
+# --- handle overlapping points --- #
+# Set offset for points in same location:
+data$lat_offset = data$lat
+data$lon_offset = data$lon
+# Run loop - if value overlaps, offset it by a random number
+for(i in 1:length(data$lat)){
+  if ( (data$lat_offset[i] %in% data$lat_offset) && (data$lon_offset[i] %in% data$lon_offset)){
+    data$lat_offset[i] = data$lat_offset[i] + runif(1, 0.0001, 0.0005)
+    data$lon_offset[i] = data$lon_offset[i] + runif(1, 0.0001, 0.0005)
+  } 
+}
+```
+
+To derive some more insight into the data, how about looking at the top calls:
+
+```{r}
+# --- what are the top calls? --- #
+# get a frequency distribution of the calls:
+top_calls = data.frame(table(data$Case_Type))
+top_calls = top_calls[order(top_calls$Freq),]
+print(top_calls)
+```
+
+### Filter
+
+So we've added in some new coordinates and fiddled with them a bit to help with the representation. At this point, it is a good idea to filter out any extraneous points or points that fall outside of our area of interest - in this case Vancouver. Geocoders aren't perfect and so we should be wary to include any false positives.
+
+First, let's subset out data that is either an NA or falls outside of Vancouver's bounds:
+
+```{r}
+# ------------------------------------------------- #
+# -------------------- Filter --------------------- #
+# ------------------------------------------------- #
+# Subset only the data if the coordinates are within our bounds or if it is not a NA
+data_filter = subset(data, (lat <= 49.313162) & (lat >= 49.199554) & 
+                   (lon <= -123.019028) & (lon >= -123.271371) & is.na(lon) == FALSE )
+
+# plot the data
+plot(data_filter$lon, data_filter$lat)
+
+# If everthing looks good, we might also write out our file:
+# joey's computer (mac): '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201401CaseLocationsDetails-geo-filtered.csv'
+# sally's computer (windows): 'c:\\Sally\\Documents\\van311-project\\201401CaseLocationsDetails-geo-filtered.csv'
+ofile_filtered = 'insert filepath here'
+write.csv(data_filter, ofile_filtered)
+```
+**NOTE**: we write another file out here so we can save our "final dataset"
+
+With a filtered dataset, we can now write our file out to a **shapefile** and a **geojson** (if you want to open it later in another GIS). 
+
+I highly recommend that you look into learning more about all the different geographic data types like **shapefiles** and **geojson**. The last thing you want to do is show up to a job interview and not understand how they work, what the differences are, what are their advantages and disadvantages, etc. For more check out [this link](https://www.udacity.com/course/viewer#!/c-ud507/l-3066258748/e-3105808646/m-3105808648), or [this link](http://www.macwright.org/2015/03/23/geojson-second-bite.html), or [this link](https://en.wikipedia.org/wiki/Shapefile)
+
+Now let's write out our data
+```{r}
+
+# --- Convert Data to Shapefile --- #
+# store coordinates in dataframe
+coords_311 = data.frame(data_filter$lon_offset, data_filter$lat_offset)
+
+# create spatialPointsDataFrame
+data_shp = SpatialPointsDataFrame(coords = coords_311, data = data_filter)
+
+# set the projection to wgs84
+projection_wgs84 = CRS("+proj=longlat +datum=WGS84")
+proj4string(data_shp) = projection_wgs84
+
+# set an output folder for our geojson files:
+# joey's computer (mac): '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/geo/'
+# sally's computer (windows): 'c:\\Sally\\Documents\\van311-project\\data\\geo\\'
+geofolder = 'insert folder path here'
+
+# Join the folderpath to each file name:
+opoints_shp = paste(geofolder, "calls_","1401",".shp", sep="")
+print(opoints_shp) # print this out to see where your file will go & what it will be called
+opoints_geojson = paste(geofolder, "calls_","1401",".geojson", sep="") 
+print(opoints_geojson) # print this out to see where your file will go & what it will be called
+
+# write the file to a shp
+writeOGR(data_shp, opoints_shp, layer="data_shp", driver="ESRI Shapefile", check_exists = FALSE)
+
+# write file to geojson
+writeOGR(data_shp, opoints_geojson, layer="data_shp", driver="GeoJSON", check_exists = FALSE)
+
+```
+
+We have all the raw data, but remember that saying "overview first, details on demand"? Our brains simply can't understand the sheer number of points on the map. How about using some way of aggregating the points to a grid? Turns our hexagonal grids are quite good for conveying density of data points. I've created a hexagonal grid in QGIS at a resolution of about 250m x 280m:
+
+First let's read in the grid and reproject it from utm zone 10 north to wgs84:
+
+```{r}
+# --- aggregate to a grid --- #
+# ref: http://www.inside-r.org/packages/cran/GISTools/docs/poly.counts
+# set the file name - combine the shpfolder with the name of the grid
+# grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
+grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_250m.geojson'
+
+# define the utm 10n projection
+# projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
+# read in the hex grid setting the projection to utm10n
+hexgrid = readOGR(grid_fn, 'OGRGeoJSON')
+# transform the projection to wgs84 to match the point file and store it to a new variable (see variable: projection_wgs84)
+hexgrid_wgs84 = spTransform(hexgrid, projection_wgs84)
+
+```
+
+Next, let's use the poly.counts() function to count the number of points in each grid cell:
+
+```{r}
+# Use the poly.counts() function to count the number of occurences of calls per grid cell
+grid_cnt = poly.counts(data_shp, hexgrid_wgs84)
+# create a data frame of the counts
+grid_total_counts = data.frame(grid_cnt)
+# set grid_total_counts dataframe to the hexgrid data
+hexgrid_wgs84$data = grid_total_counts$grid_cnt
+# remove all the grids without any calls
+hexgrid_wgs84 = subset(hexgrid_wgs84, grid_cnt >0)
+
+```
+
+Finally, write out the data to a **shapefile** and **geojson** - we will use the geojson later, but just for good practice:
+
+```{r}
+# define the output names:
+ohex_shp = paste(geoFolder, "hexgrid_250m_","1401","_cnts",".shp")
+print(ohex_shp)
+
+ohex_geojson = paste(geoFolder, "hexgrid_250m_","1401","_cnts",".geojson") 
+print(ohex_geojson)
+  
+# write the file to a shp
+writeOGR(hexgrid_wgs84, ohex_shp, layer="hexgrid_wgs84", driver="ESRI Shapefile", check_exists = FALSE)
+
+# write file to geojson
+writeOGR(hexgrid_wgs84, ohex_geojson, layer="hexgrid_wgs84", driver="GeoJSON", check_exists = FALSE)
+
+```
+
+Technically, we have enough data now to start putting together our web app which visualizes the 3-1-1 data. The next step will be to work with the representation and using the data we produced to filter the visuals with user interactions.
+
+## Full Script:
+
+If all is well, this should run in it's entirety - ***remember you need to change the folder paths!!!***:
+
+```{r, eval=FALSE}
+######################################################
+# Vancouver 3-1-1: Data Processing Script
+# Date:
+# By: 
+# Desc: 
+######################################################
+
+# ------------------------------------------------- #
+# --------------- Install Libararies --------------- #
+# ------------------------------------------------- #
+install.packages("GISTools")
+install.packages('rgdal')
+install.packages('curl')
+install.packages("devtools")
+devtools::install_github("corynissen/geocodeHERE")
+
+
+# ------------------------------------------------- #
+# ---------------- Load Libararies ----------------- #
+# ------------------------------------------------- #
+library(GISTools)
+library(rgdal)
+library(geocodeHERE)
+library(curl)
+
+# ------------------------------------------------- #
+# ------------------- Acquire --------------------- #
+# ------------------------------------------------- #
+# access from the interwebz using "curl"
+fname = curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201401CaseLocationsDetails.csv')
+# Read data as csv
+data = read.csv(fname, header=T)
+# inspect your data
+print(head(data))
+
+# ------------------------------------------------- #
+# -------------- Parse: Geocoder ------------------- #
+# ------------------------------------------------- #
+# change intersection to 00's
+data$h_block = gsub("#", "0", data$Hundred_Block)
+print(head(data$h_block))
+
+# Join the strings from each column together & add "Vancouver, BC":
+data$full_address = paste(data$h_block, 
+                          paste(data$Street_Name,
+                                "Vancouver, BC, Canada",
+                                sep=", "),
+                          sep=" ")
+
+data$full_address = gsub("Intersection", "", data$full_address)
+print(head(data$full_address))
+
+# Geocode the events - we use Nokia's Here API
+# Create an empty vector for lat and lon coordinates
+lat = c(); lon = c()
+# loop through the addresses
+for(i in 1: length(data$full_address)){
+  # store the address at index "i" as a character
+  address = as.character(data$full_address[i])
+  # append the latitude of the geocoded address to the lat vector
+  lat = c(lat,geocodeHERE_simple(address)$Latitude)
+  # append the longitude of the geocoded address to the lon vector
+  lon = c(lon,geocodeHERE_simple(address)$Longitude)
+  # at each iteration through the loop, print the coordinates - takes about 20 min.
+  print(paste("#",i,", ", lat[i], lon[i], sep=","))
+}
+
+# add the lat lon coordinates to the dataframe
+data$lat = lat
+data$lon = lon 
+
+# after geocoding, it's a good idea to write your file out!
+# joey's computer (mac): '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201401CaseLocationsDetails-geo.csv'
+# sally's computer (windows): 'c:\\Sally\\Documents\\van311-project\\201401CaseLocationsDetails-geo.csv'
+ofile ='insert filepath here' 
+write.csv(data, ofile)
+
+# ------------------------------------------------- #
+# --------------------- Mine ---------------------- #
+# ------------------------------------------------- #
+# --- Examine the unique cases --- #
+
+# examine how the cases are grouped - are these intuitive?
+unique(data$Department)
+unique(data$Division)
+
+# examine the types of cases - can we make new groups that are more useful?
+# unique(data$Case_Type)
+# Print each unique case on a new line for easier inspection
+for (i in 1:length(unique(data$Case_Type))){
+  print(unique(data$Case_Type)[i], max.levels=0)
+}
+
+# Determine classes to group case types:
+
+# graffiti and noise
+graffiti_noise = c('Graffiti Removal - City Property','Graffiti Removal - External Organization','PUI Noise Complaint Case','PUI Noise General Inquiry Case')
+
+# street surface & Maintenance
+street_traffic_maint = c('Street Furniture Repair and Maintenance Request','Street Cleaning & Debris Pickup','Street Light - Out','Street Tree Work Request SR','Street Litter Can Request','Streets - General Issues','Street Light - Pole Repair','Street - Surface Water Flooding','Street - Repair','Street Light - New/Relocation','Street Light - Flat Glass Fixture Request','Street and Traffic Light - Utility Damage','Street Sign - New','Crosswalk Marking - New','Boulevard Maintenance Issues','Bicycle Route Map Request','Sidewalk - Repair','Pothole - Repair','Pavement Markings Request - New/Modify','Pavement Marking - Repair','Sewer Pipe Inquiries','Sewer Manhole Issues','Sewer General Inquiries','Sewer Design General Inquiries','Sewer Separation Inspection Cancellation Case','Sewer Utility Damage','Sewer Odour Complaints','Plumbing and Gas Inspection Cancellation Case','Snow Angel Program - Individual Volunteer','Snow & Ice Removal - City Property','Snow and Ice Removal - Sidewalk Bylaw Violation','Snow and Ice Removal - Sidewalk Bylaw Inquiry','Traffic & Pedestrian Signal - New','Traffic Calming Request','Traffic & Pedestrian Signal - Modify','Traffic Sign - Modify','Street and Traffic Light - Utility Damage','Traffic Sign - New','Traffic Count Request','Truck Violation','Residential Parking Requests','Parking Meter Requests','Abandoned Vehicle Request')
+
+# garbage, Recycling & organics related
+garbage_recycling_organics = c('Missed Garbage Pickup','Abandoned Garbage Pickup - City Property & Parks','Cart - Garbage','Illegal Dumping/Abandoned Garbage Pickup','Parks Litter Can or Cart Request','Recycling Bag Request','Missed Recycling Pickup','Missed Apartment Recycling Pickup','Recycling Box Request','Cart - Apartment Recycling','Apartment Recycling - Registration Request','Transfer Station & Recycling - General Inquiries','Blue Box and Leaf Removal Guide Mail-Out Request','Missed Yard Trimmings and Food Scraps Pickup','Cart - Green (Yard Trimmings and Food Scraps)','Green Bin Program - Feedback and General Inquiry','Collection Calendar Mail-Out Request')
+
+# water related
+water = c('Water Leaks/Breaks','Water Service Turn On/Off Request','Water Service Locate Request','Street - Surface Water Flooding','Water Work Site Complaint','Water Hydrant Issue','Water General Inquiry','Water General Work Request','Water Pressure or No Water Issue','Water Conservation Violation','Water Meter Issue','Water Damage To City Water System','Catch Basin Issues')
+
+#animal and vegetation related
+animal_vegetation = c('Dead Animal Pickup Case','Animal Control General Inquiry Case','Animal Complaint - Non-Emergency Case','Animal Cremation Case','Dead Skunk Pickup','Lost Pets Case','Holding Stray Case','Chafer Beetle Feedback','Vegetation Maintenance SR','Trees and Vegetation Encroachment - City Property','Horticulture Inquiry on Right-of-Way')
+
+# other
+other = c('Poster/Sign Removal Request','Sign - Repair','Curbside Sign - New','Curbside Sign - Modify','Banner Request','Fire Reinspection Request for Firehall','Fire Reinspection Request for Inspector','Citizen Feedback','Wheelchair Curb/Ramp Request','Wheelchair','PRB_Park Ranger SR','Building Plans Information Request','Building Inspection Cancellation Case','Licence Payment Request Case','Gone Out of Business Case','FPB_General Inquiry Case','PUI General Inquiry Case','Electrical Inspection Cancellation Case','Bridges & Structures - Repair','Secondary Suite Information Request','General Information Request SR','Election General Concerns','Occupancy Permit Information Request','Home Safety Check Request Case','Flag Request','Homelessness/Transient Issue')
+
+# give class id numbers:
+data$cid = 9999
+for(i in 1:length(data$Case_Type)){
+  if(data$Case_Type[i] %in% graffiti_noise){
+    data$cid[i] = 1    
+  }else if(data$Case_Type[i] %in% street_traffic_maint){
+    data$cid[i] = 2   
+  }else if(data$Case_Type[i] %in% garbage_recycling_organics){
+    data$cid[i] = 3   
+  }else if(data$Case_Type[i] %in% water){
+    data$cid[i] = 4   
+  }else if(data$Case_Type[i] %in% animal_vegetation){
+    data$cid[i] = 5   
+  }else{
+    data$cid[i] = 0   
+  }
+}
+
+# --- handle overlapping points --- #
+# Set offset for points in same location:
+data$lat_offset = data$lat
+data$lon_offset = data$lon
+# Run loop - if value overlaps, offset it by a random number
+for(i in 1:length(data$lat)){
+  if ( (data$lat_offset[i] %in% data$lat_offset) && (data$lon_offset[i] %in% data$lon_offset)){
+    data$lat_offset[i] = data$lat_offset[i] + runif(1, 0.0001, 0.0005)
+    data$lon_offset[i] = data$lon_offset[i] + runif(1, 0.0001, 0.0005)
+  } 
+}
+
+# --- what are the top calls? --- #
+# get a frequency distribution of the calls:
+top_calls = data.frame(table(data$Case_Type))
+top_calls = top_calls[order(top_calls$Freq),]
+print(top_calls)
+
+# ------------------------------------------------- #
+# -------------------- Filter --------------------- #
+# ------------------------------------------------- #
+# Subset only the data if the coordinates are within our bounds or if it is not a NA
+data_filter = subset(data, (lat <= 49.313162) & (lat >= 49.199554) & 
+                   (lon <= -123.019028) & (lon >= -123.271371) & is.na(lon) == FALSE )
+
+# plot the data
+plot(data_filter$lon, data_filter$lat)
+
+# If everthing looks good, we might also write out our file:
+# joey's computer (mac): '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/calls_2014/201401CaseLocationsDetails-geo-filtered.csv'
+# sally's computer (windows): 'c:\\Sally\\Documents\\van311-project\\201401CaseLocationsDetails-geo-filtered.csv'
+ofile_filtered = 'insert filepath here'
+write.csv(data_filter, ofile_filtered)
+
+# --- Convert Data to Shapefile --- #
+# store coordinates in dataframe
+coords_311 = data.frame(data_filter$lon_offset, data_filter$lat_offset)
+
+# create spatialPointsDataFrame
+data_shp = SpatialPointsDataFrame(coords = coords_311, data = data_filter)
+
+# set the projection to wgs84
+projection_wgs84 = CRS("+proj=longlat +datum=WGS84")
+proj4string(data_shp) = projection_wgs84
+
+# set an output folder for our geojson files:
+# joey's computer (mac): '/Users/Jozo/Projects/Github-local/Workshop/aloha-r/data/geo/'
+# sally's computer (windows): 'c:\\Sally\\Documents\\van311-project\\data\\geo\\'
+geofolder = 'insert folder path here'
+
+# Join the folderpath to each file name:
+opoints_shp = paste(geofolder, "calls_","1401",".shp", sep="")
+print(opoints_shp) # print this out to see where your file will go & what it will be called
+opoints_geojson = paste(geofolder, "calls_","1401",".geojson", sep="") 
+print(opoints_geojson) # print this out to see where your file will go & what it will be called
+
+# write the file to a shp
+writeOGR(data_shp, opoints_shp, layer="data_shp", driver="ESRI Shapefile", check_exists = FALSE)
+
+# write file to geojson
+writeOGR(data_shp, opoints_geojson, layer="data_shp", driver="GeoJSON", check_exists = FALSE)
+
+# --- aggregate to a grid --- #
+# ref: http://www.inside-r.org/packages/cran/GISTools/docs/poly.counts
+# set the file name - combine the shpfolder with the name of the grid
+# grid_fn = paste(shpfolder,'hgrid_100m.shp', sep="")
+grid_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_250m.geojson'
+
+# define the utm 10n projection
+# projection_utm10n = CRS('+proj=utm +zone=10 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
+# read in the hex grid setting the projection to utm10n
+hexgrid = readOGR(grid_fn, 'OGRGeoJSON')
+# transform the projection to wgs84 to match the point file and store it to a new variable (see variable: projection_wgs84)
+hexgrid_wgs84 = spTransform(hexgrid, projection_wgs84)
+
+# Use the poly.counts() function to count the number of occurences of calls per grid cell
+grid_cnt = poly.counts(data_shp, hexgrid_wgs84)
+# create a data frame of the counts
+grid_total_counts = data.frame(grid_cnt)
+# set grid_total_counts dataframe to the hexgrid data
+hexgrid_wgs84$data = grid_total_counts$grid_cnt
+# remove all the grids without any calls
+hexgrid_wgs84 = subset(hexgrid_wgs84, grid_cnt >0)
+
+# define the output names:
+ohex_shp = paste(geoFolder, "hexgrid_250m_","1401","_cnts",".shp")
+print(ohex_shp)
+
+ohex_geojson = paste(geoFolder, "hexgrid_250m_","1401","_cnts",".geojson") 
+print(ohex_geojson)
+  
+# write the file to a shp
+writeOGR(hexgrid_wgs84, ohex_shp, layer="hexgrid_wgs84", driver="ESRI Shapefile", check_exists = FALSE)
+
+# write file to geojson
+writeOGR(hexgrid_wgs84, ohex_geojson, layer="hexgrid_wgs84", driver="GeoJSON", check_exists = FALSE)
+```
+
+***
+## Creating a full dataset:
+We completed the exploration for 1 month, but what about the remaining 11 months? What is the value added of having the other temporal data? For the future, you can explore the full year's worth of data by running this script on each of the datasets. Don't forget to change the filenames for each year - if you don't you'll write over your data and have to run all the code again ;)
+
+***
+
+***
+# Your own web map with R Leaflet
+***
+## Overview
+We've just created a whole bunch of data and so far it is just a bunch of shapefiles (or geojson files - depending on what you exported) and .csv files. We haven't even had the chance to look at what we've made! While there are a dozen tools we could use to visualize and interact with our data (e.g. Tilemill, Mapbox Studio, CartoDB, Tableau, etc), we are going to stick with R for now and let it "gently" introduce us to the **fundamentals of a web map**.  
+
+
+## Web Map Fundamentals
+A number of great people out there have created an overview of web map fundamentals, let's take a look and learn how it all works:
+
+[Alan McConchie & Beth Schechter! - anatomy of a web map](http://maptime.io/anatomy-of-a-web-map/)
+
+[Maptime ATX - web map fundamentals](http://maptimeatx.github.io/web-mapping-fundamentals/#1)
+
+[Joey's Hello Web Maps Intro](http://joeyklee.github.io/hellowebmaps/#/)
+
+## Enter: R Leaflet
+So if we know that to make a web map generally is composed of:
+
+
+1. map tiles (most of the time)
+  
+	![](../assets/img2/tiles-example.png)
+
+2. geodata
+
+	![](../assets/img2/shapefile-example.png)
+ 
+3. html/css/javascript (your webstack)
+
+	![](../assets/img2/webstack-explained.png)
+
+And we also know that:
+
+1. we know **little or nothing** about html/css/javascript
+2. we haven't made any map tiles
+
+**THEN HOW THE HELL ARE WE SUPPOSED TO MAKE OUR OWN WEB MAP???**
+
+Well, turns out that others have also been in your same predicament and have developed a library to bring web mapping to R programmers. 
+
+**Wait a second... so we can make a web map, without coding any html, css, or javascript?**
+
+YES! sort of. Some clever people got together and wrote a library in R that takes a very famous and awesome javascript library (yes there are libraries in javascript, and every other language out there!) called "Leaflet.js" and allows you to write R code and export a fully functional web map, with tiles and geodata drawn right on top! 
+
+Basically what happens is:
+
+1. you load up the "leaflet" library for R
+2. you write R code that then gets **translated** into html/css/javascript
+3. your translated code is written into an ".html" file which includes:
+	* your html skeleton
+	* the leaflet.js library and leaflet css style
+	* your javascript which was translated from your R code 
+
+
+***
+### Our First Example
+
+**With 5 lines of code, we're going to make our first interactive web map!**
+
+![](../assets/img2/example1-leafletr.png)
+
+Run these lines of code and create your first interactive map with R!
+```{r}
+
+
+  # install the leaflet library
+	devtools::install_github("rstudio/leaflet")
+	
+	# add the leaflet library to your script
+	library(leaflet)
+	
+	# initiate the leaflet instance and store it to a variable
+	m = leaflet()
+	
+	# we want to add map tiles so we use the addTiles() function - the default is openstreetmap
+	m = addTiles(m)
+	
+	# we can add markers by using the addMarkers() function
+	m = addMarkers(m, lng=-123.256168, lat=49.266063, popup="T")
+	
+	# we can "run"/compile the map, by running the printing it
+	print(m)
+
+```
+Now if we **export** the map and **save as webpage...**:
+
+
+![](../assets/img2/export-leafletr.png)
+
+The convention for naming .html files is "index", therefore, let's name our file: **index.html**
+
+
+![](../assets/img2/save-leafletr.png)
+
+***CRAZY - with just 4 lines of code, you added a pin to a map that now works on the interwebz! Let's scale this up and use our dataset and see what we can come up with!***
+
+***
+# Working with our 3-1-1 Data
+***
+![](../assets/img2/rleaflet-final.png)
+
+So let's shift gears and work with our 3-1-1 data. We now we have a bunch of points for the month of January and hexagonal grids with the call densities. How do we begin to interact with the data?
+
+**What are the main interactions we are going to work with?**:
+
+1. pop-up details (aka tool tips) on mouse click
+  * reveal specific case type
+	* reveal counts 
+2. toggle layers on and off
+
+
+** Let's get started with a rather verbose first example**
+
+## Version 1: Working with Point Data
+
+![](../assets/img2/rleaflet-1.png)
+If you're continuing from the 3-1-1 data example, we should have a dataframe called **data_filter**. If you don't, then you can read in your final csv dataset below - aren't you glad you wrote your final dataset out???.
+
+```{r}
+data_filter = read.csv(curl('https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/201401CaseLocationsDetails-geo-filtered.csv'), header=TRUE)
+```
+We're going to use the **subset()** function to get store our data into separate variables.
+
+```{r}
+# subset out your data_filter:
+df_graffiti_noise = subset(data_filter, cid == 1)
+df_street_traffic_maint = subset(data_filter, cid == 2)
+df_garbage_recycling_organics = subset(data_filter, cid == 3)
+df_water = subset(data_filter, cid == 4)
+df_animal_vegetation = subset(data_filter, cid == 5)
+df_other = subset(data_filter, cid == 0)
+```
+
+Great, now each of our data categories lives in its own variable name.
+
+Now we're going to initiate our leaflet map:
+
+```{r}
+# initiate leaflet
+m = leaflet()
+
+# add openstreetmap tiles (default)
+m = addTiles(m)
+
+# you can now see that our maptiles are rendered
+print(m)
+
+```
+
+Now we are going to define some colors using leaflet's special **colorFactor()** function:
+
+```{r}
+colorFactors = colorFactor(c('red', 'orange', 'purple', 'blue', 'pink', 'brown'), domain=data_filter$cid)
+```
+
+What the colorFactor function does is take our list of colors and "maps" then to the domain that we defined. For example, when we apply the colorFactor() function to our data, it will color a point "red", if the "cid" in the data is equal to "0", "orange" if the "cid" is equal to 1, etc.
+
+The next step is to add our points to the map. We can do so using the **addCircleMarkers()** function: 
+
+```{r}
+m = addCircleMarkers(
+                      m, 
+                      lng=df_graffiti_noise$lon_offset, # we feed the longitude coordinates 
+                      lat=df_graffiti_noise$lat_offset,
+                      popup=df_graffiti_noise$Case_Type, 
+                      radius=2, 
+                      stroke = FALSE, 
+                      fillOpacity = 0.75, 
+                      color = colorFactors(df_graffiti_noise$cid),
+                      group = "1 - graffiti & noise"
+                    )
+
+```
+
+Here's what each argument is saying:
+
+* **lng**: we add our markers to our m
+* **lat**:we feed the latitude coordinates 
+* **popup**:each feature will show the Case_Type on click
+* **radius**: we set the circle radius size
+* **stroke**: we set stroke to false
+* **fillOpacity**: we set a fill opacity
+* **color**: the colorFactors() function is applying the color based on the value of the "cid"
+* **group**:we name the group
+
+Now repeat this function across the other layers:
+
+```{r}
+m = addCircleMarkers(m, 
+                  lng=df_street_traffic_maint$lon_offset, lat=df_street_traffic_maint$lat_offset, 
+                  popup=df_street_traffic_maint$Case_Type, 
+                  radius=2, 
+                  stroke = FALSE, fillOpacity = 0.75,
+                  color = colorFactors(df_street_traffic_maint$cid),
+                  group = "2 - street & traffic & maintenance")
+m = addCircleMarkers(m, 
+                      lng=df_garbage_recycling_organics$lon_offset, lat=df_garbage_recycling_organics$lat_offset, 
+                      popup=df_garbage_recycling_organics$Case_Type, 
+                      radius=2, 
+                      stroke = FALSE, fillOpacity = 0.75,
+                      color = colorFactors(df_garbage_recycling_organics$cid),
+                      group = "3 - garbage related")
+m = addCircleMarkers(m, 
+                      lng=df_water$lon_offset, lat=df_water$lat_offset, 
+                      popup=df_water$Case_Type, 
+                      radius=2, 
+                      stroke = FALSE, fillOpacity = 0.75,
+                      color = colorFactors(df_water$cid),
+                      group = "4 - water related")
+m = addCircleMarkers(m, 
+                      lng=df_animal_vegetation$lon_offset, lat=df_animal_vegetation$lat_offset, 
+                      popup=df_animal_vegetation$Case_Type, 
+                      radius=2,
+                      stroke = FALSE, fillOpacity = 0.75,
+                      color = colorFactors(df_animal_vegetation$cid),
+                      group = "5 - animals & vegetation")
+m = addCircleMarkers(m, 
+                      lng=df_other$lon_offset, lat=df_other$lat_offset, 
+                      popup=df_other$Case_Type, 
+                      radius=2,
+                      stroke = FALSE, fillOpacity = 0.75,
+                      color = colorFactors(df_other$cid),
+                      group = "0 - other")
+
+```
+
+Now we're going to add some additional map tiles by using the **addTiles()** and the **addProviderTiles()** functions:
+
+```{r}
+m = addTiles(m, group = "OSM (default)") 
+m =  addProviderTiles(m,"Stamen.Toner", group = "Toner")
+m =  addProviderTiles(m, "Stamen.TonerLite", group = "Toner Lite")
+```
+
+We can now add in our layer toggle control using the **addLayersControl()** function - notice baseGroups are our tileLayers and the overlayGroups are our data layers:
+
+```{r}
+m = addLayersControl(m,
+                 baseGroups = c("Toner Lite","Toner"),
+                 overlayGroups = c("1 - graffiti & noise", "2 - street & traffic & maintenance",
+                                "3 - garbage related","4 - water related", "5 - animals & vegetation",
+                                "0 - other")
+)
+
+# make the map
+print(m)
+```
+
+***
+## Version 2: Optimizing version 1
+
+![](../assets/img2/rleaflet-2.png)
+So we were able to make a functioning little web app, but we notice our code had some redundancies and make it hard to change colors and things. What do we do when we have redundancy? How about loops?!
+
+We already subset our data from before:
+
+```{r}
+# subset out your data_filter:
+df_graffiti_noise = subset(data_filter, cid == 1)
+df_street_traffic_maint = subset(data_filter, cid == 2)
+df_garbage_recycling_organics = subset(data_filter, cid == 3)
+df_water = subset(data_filter, cid == 4)
+df_animal_vegetation = subset(data_filter, cid == 5)
+df_other = subset(data_filter, cid == 0)
+
+```
+
+
+Here' we are:
+
+1. adding those variables to a list so we can loop through them
+2. creating a list of our layers that we want the toggle name to be
+3. looping though the list
+
+```{r}
+# Now we're going to put those variables into a **list** so we can loop through them:
+data_filterlist = list(df_graffiti_noise = subset(data_filter, cid == 1),
+                df_street_traffic_maint = subset(data_filter, cid == 2),
+                df_garbage_recycling_organics = subset(data_filter, cid == 3),
+                df_water = subset(data_filter, cid == 4),
+                df_animal_vegetation = subset(data_filter, cid == 5),
+                df_other = subset(data_filter, cid == 0))
+
+# Remember we also had these groups associated with each variable? Let's put them in a list too:
+layerlist = c("1 - graffiti & noise", "2 - street & traffic & maintenance",
+              "3 - garbage related","4 - water related", "5 - animals & vegetation",
+              "0 - other")
+
+# We can keep that same color variable:
+colorFactors = colorFactor(c('red', 'orange', 'purple', 'blue', 'pink', 'brown'), domain=data_filter$cid)
+
+# Now we have our loop - each time through the loop, it is adding our markers to the map object:
+for (i in 1:length(data_filterlist)){
+  m = addCircleMarkers(m, 
+                        lng=data_filterlist[[i]]$lon_offset,
+                        lat=data_filterlist[[i]]$lat_offset, 
+                        popup=data_filterlist[[i]]$Case_Type, 
+                        radius=2,
+                        stroke = FALSE, 
+                        fillOpacity = 0.75,
+                        color = colorFactors(data_filterlist[[i]]$cid),
+                        group = layerlist[i]
+              )
+}
+```
+
+Now this time we flip "overlayGroups" and "baseGroups" so that we can get the radiobutton functionality - that way only 1 category of calls are shown: 
+
+```{r}
+m = addTiles(m, "Stamen.TonerLite", group = "Toner Lite") 
+m = addLayersControl(m,
+                      overlayGroups = c("Toner Lite"),
+                      baseGroups = layerlist
+                      )
+m
+```
+
+***
+## Version 3: Working with Polygons
+![](../assets/img2/rleaflet-3.png)
+
+Remember we creates that hexagonal grid to aggregate our data to? Well, let's work with it to get a general impression of the call density across the city:
+
+If you haven't already, you should have the **rgdal** and the **GISTools** libraries loaded:
+
+```{r}
+library(rgdal)
+library(GISTools)
+```
+
+Now we need to read in our hexgrid we aggregted our data to:
+
+```{r}
+# define the filepath
+hex_1401_fn='https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/geo/hgrid_250m_1401_counts.geojson'
+
+# read in the geojson
+hex_1401 = readOGR(hex_1401_fn, "OGRGeoJSON")
+```
+
+Now initiate a new map object but this time with the Stamen Toner lite style:
+
+```{r}
+m = leaflet()
+m = addProviderTiles(m, "Stamen.TonerLite", group = "Toner Lite")
+```
+
+Like any choropleth map, we need to set a color scale. We can do so by using the **colorNumeric()** function which is part of the R leaflet package.
+
+We use the "Greens" color and set the "domain" to the column called "data" in our geojson file.
+
+Here's the **exciting stuff**. Let's add our polygon to the map:
+
+```{r}
+# Create a continuous palette function
+pal = colorNumeric(
+  palette = "Greens",
+  domain = hex_1401$data
+)
+
+# add the polygons to the map
+m = addPolygons(m, 
+                data = hex_1401,
+                stroke = FALSE, 
+                smoothFactor = 0.2, 
+                fillOpacity = 1,
+                color = ~pal(hex_1401$data),
+                popup= paste("Number of calls: ",hex_1401$data, sep="")
+                )
+
+```
+
+let's break this down:
+
+* **m**: this is our map object
+* **data**: this is our spatialPolygonsDataframe
+* **smoothFactor**: addoing some smooth operator
+* **fillOpacity**: a cheeky 'ol fill opacity
+* **color**: we let our **colorNumeric()**function handle the color
+* **popup**: we set popup on click to our call density
+
+And what is a choropleth map without a legend? Let's add one using the **addLegend()** function:
+
+```{r}
+m = addLegend(m, "bottomright", pal = pal, values = hex_1401$data,
+              title = "3-1-1 call density",
+              labFormat = labelFormat(prefix = " "),
+              opacity = 0.75
+)
+
+print(m)
+
+```
+
+***
+## Version 3: Synthesis
+![](../assets/img2/rleaflet-final.png)
+
+
+Now that we've got the two pieces of our map - toggleable & clickable point layers and hex grid - let's put them together. 
+
+```{r}
+# initiate leaflet map layer
+m = leaflet()
+m = addProviderTiles(m, "Stamen.TonerLite", group = "Toner Lite") 
+
+
+# --- hex grid --- #
+# store the file name of the geojson hex grid
+hex_1401_fn = 'https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/geo/hgrid_250m_1401_counts.geojson'
+
+# read in the data
+hex_1401 = readOGR(hex_1401_fn, "OGRGeoJSON")
+
+# Create a continuous palette function
+pal = colorNumeric(
+  palette = "Greens",
+  domain = hex_1401$data
+)
+
+# add hex grid
+m = addPolygons(m, 
+                data = hex_1401,
+                stroke = FALSE, 
+                smoothFactor = 0.2, 
+                fillOpacity = 1,
+                color = ~pal(hex_1401$data),
+                popup= paste("Number of calls: ",hex_1401$data, sep=""),
+                group = "hex"
+)
+
+# add legend
+m = addLegend(m, "bottomright", pal = pal, values = hex_1401$data,
+              title = "3-1-1 call density",
+              labFormat = labelFormat(prefix = " "),
+              opacity = 0.75
+)
+
+# --- points data --- #
+
+# subset out your data:
+df_graffiti_noise = subset(data_filter, cid == 1)
+df_street_traffic_maint = subset(data_filter, cid == 2)
+df_garbage_recycling_organics = subset(data_filter, cid == 3)
+df_water = subset(data_filter, cid == 4)
+df_animal_vegetation = subset(data_filter, cid == 5)
+df_other = subset(data_filter, cid == 0)
+
+data_filterlist = list(df_graffiti_noise = subset(data_filter, cid == 1),
+                df_street_traffic_maint = subset(data_filter, cid == 2),
+                df_garbage_recycling_organics = subset(data_filter, cid == 3),
+                df_water = subset(data_filter, cid == 4),
+                df_animal_vegetation = subset(data_filter, cid == 5),
+                df_other = subset(data_filter, cid == 0))
+layerlist = c("1 - graffiti & noise", "2 - street & traffic & maintenance",
+              "3 - garbage related","4 - water related", "5 - animals & vegetation",
+              "0 - other")
+
+
+colorFactors = colorFactor(c('red', 'orange', 'purple', 'blue', 'pink', 'brown'), domain=data_filter$cid)
+for (i in 1:length(data_filterlist)){
+  m = addCircleMarkers(m, 
+                       lng=data_filterlist[[i]]$lon_offset, lat=data_filterlist[[i]]$lat_offset, 
+                       popup=data_filterlist[[i]]$Case_Type, 
+                       radius=2,
+                       stroke = FALSE, fillOpacity = 0.75,
+                       color = colorFactors(data_filterlist[[i]]$cid),
+                       group = layerlist[i]
+  )
+
+}
+
+
+m = addLayersControl(m,
+                     overlayGroups = c("Toner Lite", "hex"),
+                     baseGroups = layerlist
+)
+
+# show map
+print(m)
+```
+
+***Congratulations you just made your first super awesome and fully functional web map using R!***
+
+**Now, play with oyur maps and try to identify weaknesses and strengths of your map. Are the colors appropriate? could they be bettter? what's missing? REFINE YOUR STUFF**
+
+***
+# Review:
+***
+In this tutorial we covered a lot of ground. We're neither masters of R nor data viz experts, however we got the chance to go through the entire data viz pipeline:
+
+* acquire: pulled 3-1-1 data from github
+* parse: manipulted table data and geocoded the data
+* filter: removed points that fell outside of the bounding box of vancouver
+* mine: classified the data & added jitter
+* represent: web mapping
+* refine: web mapping
+* interact: web mapping
+
+## What's Next:
+Right now our maps can only live on our computers, but we will have to learn how to put them onto the internet. For now, continue exploring locally, but keep in mind that the next step is to get these things on the web.
