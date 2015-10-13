@@ -137,39 +137,39 @@ You will be marked on:
 ## Sign up Sheet:
 
 1. 2014:
-	* .
-	* .
-	* . 
+	* Ashley Montgomery
+	* Gloria Cho
+	* David Zhang
 2. 2013:
-	* .
-	* .
-	* .
+	* Ellen Heyes
+	* Avyi Koulas
+	* Jonathan Rayher
 3. 2012:
 	* Alex Graham
-	* .
+	* Luke Terhart
 4. 2011:
-	* .
-	* .
+	* Bob Wang
+	* Nasa Bremer
 5. 2010:
-	* .
-	* .
+	* June Tse
+	* Michelle Pang
 6. 2009:
-	* .
-	* .
+	* Yunfei Xu
+	* Meijing Goo
 7. 2008:
-	* .
-	* .
+	* Mike Jerowsky
+	* Alison Carr
 8. 2007:
-	* .
-	* .
+	* Laura Jickling 
+	* Audrey Schalhoub
 9. 2006:
-	* .
-	* .
+	* Charles Leung
+	* Sophie Lee
 10. 2005:
-	* .
-	* .
+	* Megan Fyfe
+	* Mireille Seguin
 11. 2004:
-	* .
+	* Belinda Liu
 	* .
 12. 2003:
 	* .
