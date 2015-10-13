@@ -14,7 +14,7 @@ You should be able to tell some sort of narrative with your visualization. -->
 ## Data:
 
 * [Vancouver Crime Data](http://data.vancouver.ca/datacatalogue/crime-data-details.htm)
-* [250 m Hex Grid](https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/shp/hgrid_250m.geojson)
+* [250 m Hex Grid](https://raw.githubusercontent.com/joeyklee/aloha-r/master/data/calls_2014/geo/hgrid_250m.geojson)
 
 ## Web map requirements:
 
